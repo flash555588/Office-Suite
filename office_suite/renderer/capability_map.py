@@ -195,8 +195,16 @@ def compare_renderers(renderer1: str, renderer2: str) -> dict[str, dict[str, set
     for cat in all_categories:
         f1 = caps1.get(cat, set())
         f2 = caps2.get(cat, set())
-        only_in_1[cat] = f1 - f2
-        only_in_2[cat] = f2 - f1
-        common[cat] = f1 & f2
+        # fallbacks 是 dict，其他是 set
+        if isinstance(f1, dict) or isinstance(f2, dict):
+            keys1 = set(f1.keys()) if isinstance(f1, dict) else set()
+            keys2 = set(f2.keys()) if isinstance(f2, dict) else set()
+            only_in_1[cat] = keys1 - keys2
+            only_in_2[cat] = keys2 - keys1
+            common[cat] = keys1 & keys2
+        else:
+            only_in_1[cat] = f1 - f2
+            only_in_2[cat] = f2 - f1
+            common[cat] = f1 & f2
 
     return {"only_in_1": only_in_1, "only_in_2": only_in_2, "common": common}

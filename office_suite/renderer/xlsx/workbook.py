@@ -24,6 +24,7 @@ from typing import Any
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+from openpyxl.chart.series import DataPoint
 from openpyxl.utils import get_column_letter
 
 from ...ir.types import IRDocument, IRNode, IRStyle, NodeType
@@ -31,11 +32,22 @@ from ...ir.validator import validate_ir_v2
 from ..base import BaseRenderer, RendererCapability
 
 # openpyxl 图表类型映射
+# column = 簇状柱形图（垂直），bar = 条形图（水平）
 CHART_CLASS_MAP = {
     "bar": BarChart,
     "column": BarChart,
     "line": LineChart,
     "pie": PieChart,
+}
+
+# 数字格式映射（常见格式）
+NUMBER_FORMAT_MAP = {
+    "int": '#,##0',
+    "float": '#,##0.00',
+    "percent": '0.00%',
+    "currency": '¥#,##0.00',
+    "date": 'YYYY-MM-DD',
+    "scientific": '0.00E+00',
 }
 
 
@@ -117,11 +129,17 @@ class XLSXRenderer(BaseRenderer):
     def _render_table(self, node: IRNode, ws):
         """渲染表格 → 写入数据区域
 
-        从当前行开始写入，支持表头样式和数据区域。
+        支持：
+          - 表头样式（加粗、深色背景）
+          - 交替行颜色
+          - 边框
+          - 自动列宽
+          - 数字格式（extra.number_format）
         """
         data = node.extra.get("data", [])
         rows = node.extra.get("rows", len(data))
         cols = node.extra.get("cols", len(data[0]) if data else 0)
+        number_format = node.extra.get("number_format")  # e.g. "int", "float", "percent"
 
         start_row = self._current_row
 
@@ -137,6 +155,7 @@ class XLSXRenderer(BaseRenderer):
                     if r == 0:
                         cell.font = Font(bold=True, color="FFFFFF", size=11)
                         cell.fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
                     elif r % 2 == 0:
                         cell.fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
 
@@ -146,6 +165,11 @@ class XLSXRenderer(BaseRenderer):
                         top=Side(style="thin", color="E2E8F0"),
                         bottom=Side(style="thin", color="E2E8F0"),
                     )
+
+                    # 数字格式（仅数据行，跳过表头）
+                    if r > 0 and number_format and isinstance(cell_val, (int, float)):
+                        fmt = NUMBER_FORMAT_MAP.get(number_format, number_format)
+                        cell.number_format = fmt
 
         # 自动列宽
         for c in range(cols):
@@ -161,7 +185,11 @@ class XLSXRenderer(BaseRenderer):
     def _render_chart(self, node: IRNode, ws):
         """渲染图表 → 在 Sheet 中嵌入图表
 
-        数据写入隐藏区域，图表引用该区域。
+        支持：
+          - bar/column/line/pie 图表类型
+          - 图表标题
+          - 坐标轴标签（extra.x_axis_title / extra.y_axis_title）
+          - 柱状图方向（column = 垂直, bar = 水平）
         """
         chart_type_str = node.chart_type or node.extra.get("chart_type", "bar")
         categories = node.extra.get("categories", [])
@@ -175,11 +203,9 @@ class XLSXRenderer(BaseRenderer):
 
         # 写入数据到隐藏区域
         data_start_row = self._current_row
-        # 表头
         ws.cell(row=data_start_row, column=1, value="类别")
         for i, s in enumerate(series_list):
             ws.cell(row=data_start_row, column=i + 2, value=s.get("name", f"系列{i+1}"))
-        # 数据
         for r, cat in enumerate(categories):
             ws.cell(row=data_start_row + 1 + r, column=1, value=cat)
             for i, s in enumerate(series_list):
@@ -194,10 +220,17 @@ class XLSXRenderer(BaseRenderer):
         chart = chart_class()
         chart.title = title
         chart.style = 10
-        # PieChart 没有 axis 属性
+
+        # 柱状图方向：column = 垂直（默认），bar = 水平
+        if chart_type_str == "column":
+            chart.type = "col"
+
+        # 坐标轴（PieChart 没有 axis 属性）
         if not isinstance(chart, PieChart):
-            chart.y_axis.title = ""
-            chart.x_axis.title = ""
+            x_axis_title = node.extra.get("x_axis_title", "")
+            y_axis_title = node.extra.get("y_axis_title", "")
+            chart.x_axis.title = x_axis_title
+            chart.y_axis.title = y_axis_title
 
         # 数据引用
         cats_ref = Reference(ws, min_col=1, min_row=data_start_row + 1, max_row=data_start_row + data_rows)

@@ -811,13 +811,21 @@ def compile_document(doc: Document) -> IRDocument:
         slide_nodes = compile_slide(slide, doc.styles, doc_ir_styles, doc.theme, i)
         slides.extend(slide_nodes)  # compile_slide 返回列表（可能分页）
 
+    # 提取 data binding 的 inline 数据
+    resolved_data = {}
+    for key, binding in doc.data.items():
+        if hasattr(binding, 'inline') and binding.inline is not None:
+            resolved_data[key] = binding.inline
+        elif hasattr(binding, 'source') and binding.source:
+            resolved_data[key] = binding.source  # 外部源引用
+
     return IRDocument(
         version=doc.version,
         doc_type=doc.type.value,
         theme=doc.theme,
         title=doc.title,
         styles=doc_ir_styles,
-        data={k: v for k, v in doc.data.items()},
+        data=resolved_data,
         children=slides,
         raw_dsl=doc.raw,
     )

@@ -148,7 +148,11 @@ PDF + HTML 渲染器。30 项测试全部通过。
 | Phase 8 | 8 | ✅ |
 | Phase 9 | 64 | ✅ |
 | Pipeline | 39 | ✅ |
-| **总计 (pytest)** | **180** | **全绿** |
+| P1 架构 | 32 | ✅ |
+| P3 DOCX/XLSX | 12 | ✅ |
+| P4 功能增强 | 9 | ✅ |
+| P5 Hub 资源系统 | 20 | ✅ |
+| **总计 (pytest)** | **253** | **全绿** |
 
 ## P0 问题解决状态
 
@@ -161,6 +165,139 @@ PDF + HTML 渲染器。30 项测试全部通过。
 Phase 9 已完成全部验收标准。项目核心功能全部就绪。
 
 根据 `GAP_CLOSURE_PLAN.md` 和 `P0_P10_ROADMAP.md`，下一步：
-1. **P1 — MVP 架构补强**（3-5 天）
-2. **P2 — PPTX 渲染器模块化**（3-5 天）
-3. **P3 — DOCX/XLSX 渲染器模块化**（1 周）
+1. **P2 — PPTX 渲染器模块化** ✅ 已完成
+2. **P3 — DOCX/XLSX 渲染器模块化** ✅ 已完成
+3. **P4 — DOCX/XLSX 功能深度增强** ✅ 已完成
+4. **P5 — Hub 与资源系统完善** ✅ 已完成
+5. **P6 — Pipeline DAG 可靠性**（1-2 周）
+
+## Phase 5 ✅ 已完成
+Hub 与资源系统完善。20 项测试全部通过。
+
+### 改动内容
+
+| 模块 | 改动 | 说明 |
+|------|------|------|
+| `hub/resolver.py` | 新增重试机制 | 指数退避，可重试错误自动重试，不可重试直接失败 |
+| `hub/registry.py` | 修复匹配逻辑 | provider 匹配但 fetch 失败时直接返回结果，不再静默跳过 |
+| `hub/__init__.py` | 导出 `is_retryable` | 公开重试判断函数 |
+| `hub/providers/fake_providers.py` | **新增** | FakeMCPCaller / FakeAICaller / FakeSkillExecutor |
+
+### Fake Provider
+
+| 类 | 用途 |
+|------|------|
+| `FakeMCPCaller` | 模拟 MCP 服务器响应，可注册自定义响应，记录调用次数 |
+| `FakeAICaller` | 模拟 AI 模型响应，支持动态切换响应 |
+| `FakeSkillExecutor` | 模拟 Skill 执行，支持成功/失败响应 |
+
+### 重试机制
+
+| 配置 | 默认值 | 说明 |
+|------|--------|------|
+| `max_retries` | 2 | 最大重试次数 |
+| `base_delay` | 0.1s | 基础延迟（指数退避：0.1s, 0.2s, 0.4s...） |
+| 可重试错误 | — | timeout, connection refused/reset, 429, 502, 503, rate limit |
+| 不可重试错误 | — | resource not found, permission denied, 参数错误 |
+
+### 新增测试
+
+| 类别 | 测试数 | 覆盖内容 |
+|------|--------|---------|
+| Cache hit/miss | 6 | 命中、未命中、hit_rate |
+| Cache TTL | 3 | 未过期命中、过期失效、__contains__ |
+| Cache LRU | 5 | 驱逐顺序、访问提升、stats |
+| Cache 手动失效 | 3 | invalidate、clear、len |
+| Cache 更新 | 2 | 已有 key 更新、长度不变 |
+| Fake Provider | 10 | 三个 Fake 类的默认/自定义/失败响应 |
+| MCP 集成 | 10 | can_handle、fetch、未注册 caller、list_servers |
+| AI 集成 | 14 | can_handle、fetch、推断能力、list_capabilities |
+| Skill 集成 | 12 | can_handle、fetch、未注册/无 executor、list/get |
+| 重试 | 10 | 可重试自动重试、不可重试直接失败、重试耗尽、is_retryable |
+| Resolver 集成 | 6 | MCP+缓存、降级链、缓存键一致性 |
+| 完整注册表 | 7 | 5 个 Provider 注册、各类型资源解析 |
+
+## Phase 1 ✅ 已完成
+MVP 架构补强。32 项测试全部通过。
+
+### 修复内容
+
+| 问题 | 修复 | 影响 |
+|------|------|------|
+| GridLayout 默认高度 190.5mm (4:3) | 改为 142.875mm (16:9) | grid.py |
+| 11 个模板高度 190mm | 改为 142.875mm | templates/builtins/*.py |
+| FlexLayout docstring 示例 190.5 | 改为 142.875 | flex.py |
+| critique.py 边界检查 200mm | 改为 148mm | ai/critique.py |
+| compare_renderers 对 dict 做 set 运算 | 增加 dict 类型判断 | capability_map.py |
+
+### 新增测试
+
+| 类别 | 测试数 | 覆盖内容 |
+|------|--------|---------|
+| 样式级联 | 10 | merge、None 跳过、空字符串、0 值、深拷贝、优先级、by_name |
+| 渲染器能力 | 8 | capability 声明、PPTX/DOCX/XLSX/PDF/HTML 降级策略 |
+| 尺寸一致性 | 5 | GridLayout/FlexLayout 16:9 默认值、列宽计算、位置解析 |
+| 降级行为 | 5 | duotone→opacity、blur→shadow、chart→table、shape→text |
+| 能力映射表 | 4 | RENDERER_CAPABILITIES、get_capabilities、compare_renderers |
+
+## Phase 2 ✅ 已完成
+PPTX 渲染器模块化。212 项测试全部通过，行为不变。
+
+### 拆分结果
+
+| 模块 | 行数 | 职责 |
+|------|------|------|
+| `deck.py` | 236 | facade（入口、分派、文本/图片/占位符） |
+| `style.py` | 213 | 样式解析、主题色、阴影/渐变/文本变换 |
+| `animation.py` | 300 | 动画 XML 注入（已有） |
+| `chart.py` | 94 | 图表渲染、数据构建 |
+| `shape.py` | 106 | 形状渲染、填充、边框 |
+| `table.py` | 75 | 表格渲染、样式 |
+| `slide.py` | 68 | 幻灯片创建/布局映射 |
+
+`deck.py` 从 848 行降到 236 行，各模块职责单一，公开 import 路径不变。
+
+## Phase 3 ✅ 已完成
+DOCX/XLSX 内部结构验证。12 项测试全部通过。
+
+DOCX（232 行）和 XLSX（235 行）已经足够小，不做强行拆分。重点放在验证生成文档的内部结构正确性。
+
+### 新增测试
+
+| 测试 | 覆盖内容 |
+|------|---------|
+| DOCX 段落内容 | 段落数、标题文本、正文文本 |
+| DOCX 标题层级 | font_size >= 28 → H1, >= 20 → H2 |
+| DOCX 表格维度 | 行列数、单元格值 |
+| DOCX 表格表头 | 首行加粗验证 |
+| DOCX 图片降级 | 缺失图片 → 占位符段落 |
+| XLSX Sheet 名称 | 多 Sheet 自动命名 |
+| XLSX 单元格值 | 数据写入正确性 |
+| XLSX 表头样式 | 加粗、深色背景 |
+| XLSX 图表存在 | 图表对象嵌入 |
+| XLSX 图表标题 | 标题文本正确 |
+| XLSX 自动列宽 | 长内容列更宽 |
+| XLSX 多 Sheet 内容 | 各 Sheet 数据独立 |
+
+## Phase 4 ✅ 已完成
+DOCX/XLSX 功能深度增强。9 项测试全部通过。
+
+### DOCX 增强
+
+| 功能 | 说明 |
+|------|------|
+| 页边距 | 默认 25mm 四边 |
+| 列表支持 | extra.list_type: bullet / number |
+| 段落间距 | extra.spacing_before / spacing_after (pt) |
+| 表格表头样式 | 深色背景 + 居中 + 白色文字 |
+| 图片尺寸 | width + height 同时设置 |
+| data_ref | 表格引用文档级数据源 |
+
+### XLSX 增强
+
+| 功能 | 说明 |
+|------|------|
+| 数字格式 | extra.number_format: int/float/percent/currency |
+| 图表坐标轴 | extra.x_axis_title / y_axis_title |
+| 柱状图方向 | chart_type: column → 垂直柱状图 |
+| data_ref 修复 | 编译器正确提取 DataBinding.inline |

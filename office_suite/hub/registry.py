@@ -60,19 +60,30 @@ class ResourceRegistry:
         2. 缓存中的历史版本
         3. 占位符资源（带标记，后续可替换）
         4. 空白占位 + 警告日志
+
+        匹配逻辑：
+        - can_handle 且 fetch 成功 → 直接返回
+        - can_handle 但 fetch 失败 → 返回该失败结果（不继续尝试）
+        - 无任何 provider 匹配 → 降级占位符
         """
-        # 查找匹配的 Provider
+        matched_any = False
+
         for provider in self._providers:
             if provider.can_handle(source):
+                matched_any = True
                 try:
                     result = provider.fetch(source, **kwargs)
-                    if result.success:
-                        return result
+                    return result
                 except Exception as e:
-                    # Provider 异常，继续尝试下一个
-                    pass
+                    # Provider 异常，包装为失败结果返回
+                    return ResourceResult(
+                        success=False,
+                        fallback_used=True,
+                        fallback_reason=f"Provider {provider.name} 异常: {e}",
+                        error=str(e),
+                    )
 
-        # 所有 Provider 都无法处理 → 降级到占位符
+        # 无 Provider 匹配 → 降级到占位符
         return ResourceResult(
             success=False,
             fallback_used=True,

@@ -40,7 +40,7 @@ class GridLayout:
     计算每个元素的绝对位置。
 
     用法：
-        layout = GridLayout(columns=12, container_width=254, container_height=190.5)
+        layout = GridLayout(columns=12, container_width=254, container_height=142.875)
         pos = layout.resolve(GridPosition(column=1, column_span=6, row=1))
     """
 
@@ -48,7 +48,7 @@ class GridLayout:
         self,
         columns: int = 12,
         container_width: float = 254.0,
-        container_height: float = 190.5,
+        container_height: float = 142.875,
         gutter: float = 2.0,
         row_height: float | None = None,
     ):

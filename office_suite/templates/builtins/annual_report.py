@@ -42,7 +42,7 @@ slides:
       - type: shape
         shape_type: rectangle
         style: { fill: { color: "{{primary_color}}" } }
-        position: { x: 0mm, y: 0mm, width: 254mm, height: 190mm }
+        position: { x: 0mm, y: 0mm, width: 254mm, height: 142.875mm }
       - type: text
         content: "{{title}}"
         style: title

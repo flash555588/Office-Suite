@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document
-from docx.shared import Pt, Mm, RGBColor, Inches
+from docx.shared import Pt, Mm, RGBColor, Inches, Cm, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
@@ -70,6 +70,13 @@ class DOCXRenderer(BaseRenderer):
         style = self._doc.styles["Normal"]
         style.font.name = "Microsoft YaHei UI"
         style.font.size = Pt(11)
+
+        # 设置默认页边距（25mm ≈ 1 inch）
+        for section in self._doc.sections:
+            section.top_margin = Mm(25)
+            section.bottom_margin = Mm(25)
+            section.left_margin = Mm(25)
+            section.right_margin = Mm(25)
 
         # 遍历节/幻灯片
         for node in doc.children:
@@ -122,6 +129,8 @@ class DOCXRenderer(BaseRenderer):
           >= 28pt → Heading 1
           >= 20pt → Heading 2
           其他    → 普通段落
+
+        支持 extra.list_type: "bullet" / "number" 生成列表。
         """
         style = node.style
         content = node.content or ""
@@ -138,14 +147,42 @@ class DOCXRenderer(BaseRenderer):
             heading = self._doc.add_heading(content, level=2)
             self._apply_heading_style(heading, style)
         else:
-            para = self._doc.add_paragraph(content)
+            # 列表支持
+            list_type = node.extra.get("list_type") if node.extra else None
+            if list_type == "bullet":
+                para = self._doc.add_paragraph(content, style="List Bullet")
+            elif list_type == "number":
+                para = self._doc.add_paragraph(content, style="List Number")
+            else:
+                para = self._doc.add_paragraph(content)
             self._apply_paragraph_style(para, style)
+            # 段落间距（从 node.extra 读取）
+            if node.extra:
+                sp_before = node.extra.get("spacing_before")
+                sp_after = node.extra.get("spacing_after")
+                if sp_before is not None:
+                    para.paragraph_format.space_before = Pt(sp_before)
+                if sp_after is not None:
+                    para.paragraph_format.space_after = Pt(sp_after)
 
     def _render_table(self, node: IRNode, doc: IRDocument):
-        """渲染表格元素"""
+        """渲染表格元素
+
+        支持：
+          - 表头加粗、深色背景
+          - 交替行颜色
+          - 单元格对齐
+        """
         rows = node.extra.get("rows", 3)
         cols = node.extra.get("cols", 3)
-        data = node.extra.get("data", [])
+        # 数据来源：data_ref 优先于 extra.data
+        data = []
+        if node.data_ref and node.data_ref in doc.data:
+            ref_val = doc.data[node.data_ref]
+            if isinstance(ref_val, list):
+                data = ref_val
+        if not data:
+            data = node.extra.get("data", [])
 
         table = self._doc.add_table(rows=rows, cols=cols, style="Table Grid")
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -156,23 +193,39 @@ class DOCXRenderer(BaseRenderer):
                 for c, cell_val in enumerate(row_data[:cols]):
                     cell = table.cell(r, c)
                     cell.text = str(cell_val)
-                    # 首行加粗
+
+                    # 首行样式：加粗 + 深色背景
                     if r == 0:
                         for para in cell.paragraphs:
+                            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                             for run in para.runs:
                                 run.bold = True
+                                run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                        # 深色背景
+                        shading = cell._element.get_or_add_tcPr()
+                        shd = shading.makeelement(qn("w:shd"), {
+                            qn("w:fill"): "1E293B",
+                            qn("w:val"): "clear",
+                        })
+                        shading.append(shd)
 
     def _render_image(self, node: IRNode, doc: IRDocument):
-        """渲染图片元素"""
+        """渲染图片元素
+
+        支持 width/height 同时设置，保持比例。
+        """
         source = node.source
         if isinstance(source, str):
             file_path = Path(source.replace("file://", ""))
             if file_path.exists():
-                # 计算宽度
                 width = None
-                if node.position and node.position.width_mm > 0:
-                    width = Mm(int(node.position.width_mm))
-                self._doc.add_picture(str(file_path), width=width)
+                height = None
+                if node.position:
+                    if node.position.width_mm > 0:
+                        width = Mm(int(node.position.width_mm))
+                    if node.position.height_mm > 0:
+                        height = Mm(int(node.position.height_mm))
+                self._doc.add_picture(str(file_path), width=width, height=height)
                 return
 
         # 降级：占位符
@@ -195,7 +248,7 @@ class DOCXRenderer(BaseRenderer):
         self._apply_paragraph_style(para, style)
 
     def _apply_paragraph_style(self, para, style: IRStyle | None):
-        """应用段落样式"""
+        """应用段落样式（字体、颜色、对齐）"""
         if style is None:
             return
         for run in para.runs:

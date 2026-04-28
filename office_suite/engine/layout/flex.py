@@ -39,7 +39,7 @@ class FlexLayout:
     - 伸缩：flex-grow / flex-shrink
 
     用法：
-        layout = FlexLayout(container_width=254, container_height=190.5)
+        layout = FlexLayout(container_width=254, container_height=142.875)
         positions = layout.resolve(
             flex_pos=FlexPosition(direction=FlexDirection.ROW, gap=5),
             items=[FlexItem(width=50, height=30), FlexItem(width=80, height=30)],

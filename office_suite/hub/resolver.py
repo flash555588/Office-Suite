@@ -11,10 +11,16 @@
   2. Provider 获取 → 成功则写入缓存
   3. 占位符标记 → fallback_used=True
   4. 空结果 + warning 日志
+
+重试策略：
+  - 可重试错误（网络超时、连接拒绝）自动重试 max_retries 次
+  - 不可重试错误（资源不存在、权限不足）直接失败
+  - 重试间隔：base_delay * 2^attempt（指数退避）
 """
 
 import logging
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +30,19 @@ from .providers.local_provider import LocalFileProvider
 from .providers.inline_provider import InlineDataProvider
 
 logger = logging.getLogger(__name__)
+
+# 可重试的错误关键词
+RETRYABLE_ERRORS = frozenset([
+    "timeout", "timed out", "connection refused", "connection reset",
+    "connection error", "network", "temporary", "503", "502", "429",
+    "rate limit", "throttle", "retry",
+])
+
+
+def is_retryable(error: str) -> bool:
+    """判断错误是否可重试"""
+    error_lower = error.lower()
+    return any(kw in error_lower for kw in RETRYABLE_ERRORS)
 
 
 def create_default_registry() -> ResourceRegistry:
@@ -47,9 +66,13 @@ class ResourceResolver:
         self,
         registry: ResourceRegistry | None = None,
         cache: ResourceCache | None = None,
+        max_retries: int = 2,
+        base_delay: float = 0.1,
     ):
         self.registry = registry or create_default_registry()
         self.cache = cache or ResourceCache()
+        self.max_retries = max_retries
+        self.base_delay = base_delay
 
     def resolve(self, source: str | dict, **kwargs) -> ResourceResult:
         """解析资源引用
@@ -59,6 +82,10 @@ class ResourceResolver:
         2. Provider 获取成功 → 写入缓存，返回结果
         3. Provider 获取失败 → 返回占位符（fallback_used=True）
         4. source 为 None → 立即返回失败结果 + warning 日志
+
+        重试：
+        - 可重试错误自动重试 max_retries 次（指数退避）
+        - 不可重试错误直接失败
         """
         if source is None:
             logger.warning("[ResourceResolver] source 为 None，跳过解析")
@@ -92,8 +119,8 @@ class ResourceResolver:
             logger.debug("[ResourceResolver] 缓存命中: %s", cache_key)
             return cached
 
-        # 2. Provider 获取
-        result = self.registry.resolve(source, **kwargs)
+        # 2. Provider 获取（带重试）
+        result = self._fetch_with_retry(source, **kwargs)
 
         if result.success:
             # 写入缓存
@@ -112,6 +139,44 @@ class ResourceResolver:
             )
 
         return result
+
+    def _fetch_with_retry(self, source: str | dict, **kwargs) -> ResourceResult:
+        """带重试的资源获取
+
+        可重试错误：网络超时、连接拒绝、限流等
+        不可重试错误：资源不存在、参数错误、未配置 caller
+        """
+        last_result = None
+
+        for attempt in range(self.max_retries + 1):
+            result = self.registry.resolve(source, **kwargs)
+
+            if result.success:
+                return result
+
+            last_result = result
+
+            # 判断是否可重试
+            if not is_retryable(result.error):
+                logger.debug(
+                    "[ResourceResolver] 不可重试错误，直接失败: %s",
+                    result.error,
+                )
+                return result
+
+            # 还有重试次数
+            if attempt < self.max_retries:
+                delay = self.base_delay * (2 ** attempt)
+                logger.debug(
+                    "[ResourceResolver] 重试 %d/%d，等待 %.2fs: %s",
+                    attempt + 1,
+                    self.max_retries,
+                    delay,
+                    result.error,
+                )
+                time.sleep(delay)
+
+        return last_result
 
     def resolve_for_image(self, source: str | dict, base_dir: Path | None = None) -> ResourceResult:
         """专门解析图片资源"""
