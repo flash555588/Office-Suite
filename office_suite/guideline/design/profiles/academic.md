@@ -51,12 +51,12 @@ The title should be a descriptive finding statement ("Transformer Attention Patt
 | Mathematical formulation | Centered LaTeX block with variable annotations |
 | Process workflow | Flowchart built from shapes and connectors |
 
-## Prohibited Patterns
+## Design Guidance
 
-| Pattern | Why It Fails |
-|---------|-------------|
-| Decorative backgrounds or textures | Competes with data for visual attention |
-| Charts without complete annotations | Undermines scientific rigor |
-| Text effects (shadow, glow, bevel) | Signals decoration over substance |
-| Unsupported claims | Academic audiences verify assertions |
-| Gradient fills on charts | Reduces data readability |
+| Pattern | Guidance |
+|---------|----------|
+| Decorative backgrounds or textures | Avoid on data pages; permitted on cover/closing for conference branding |
+| Charts without complete annotations | Blocker -- undermines scientific rigor |
+| Text effects (shadow, glow, bevel) | Avoid on data/content pages; permitted on cover/closing for visual identity |
+| Unsupported claims | Blocker -- academic audiences verify assertions |
+| Gradient fills on charts | Avoid -- reduces data readability |

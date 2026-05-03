@@ -64,7 +64,8 @@ class DSLValidationResult:
 VALID_DOC_TYPES = {"presentation", "document", "spreadsheet"}
 VALID_ELEMENT_TYPES = {
     "text", "image", "shape", "table", "chart", "group",
-    "semantic_icon", "video", "audio", "code", "diagram", "model_3d", "map",
+    "semantic_icon", "component", "video", "audio", "code", "diagram",
+    "3d_model", "model_3d", "map",
 }
 VALID_SHAPE_TYPES = {
     "rectangle", "rounded_rectangle", "ellipse", "circle",
@@ -75,9 +76,16 @@ VALID_SEMANTIC_ICON_PRIMITIVES = {
     "ellipse", "circle", "triangle", "line",
 }
 VALID_CHART_TYPES = {
+    # 原生 PPTX 图表
     "bar", "column", "line", "pie", "area", "scatter",
     "doughnut", "radar", "bubble",
+    "bar_stacked", "column_stacked", "line_marked",
+    # 外部引擎图表 (matplotlib/plotly/ggplot2/pgfplots/vega-lite)
+    "heatmap", "box", "violin", "histogram", "density",
+    "funnel", "sunburst", "treemap",
 }
+VALID_TEXT_FORMATS = {"plain", "markdown", "latex", "rich"}
+VALID_CHART_ENGINES = {"native", "matplotlib", "plotly", "vega-lite", "ggplot2", "pgfplots"}
 VALID_LAYOUT_MODES = {
     "absolute", "relative", "grid", "flex", "constraint",
     # 语义布局预设（由 semantic_layouts.py 解析为具体配置）
@@ -207,6 +215,15 @@ def _check_element(elem: dict, path: str, result: DSLValidationResult):
             Severity.ERROR, "text 元素必须有 content 字段",
             path, "text_content_required"))
 
+    # 文本 format 字段校验
+    if etype == "text":
+        fmt = elem.get("format", "plain")
+        if fmt and fmt not in VALID_TEXT_FORMATS:
+            result.issues.append(DSLValidationIssue(
+                Severity.WARNING,
+                f"未知文本格式 '{fmt}'，合法值: {sorted(VALID_TEXT_FORMATS)}",
+                f"{path}.format", "text_format_unknown"))
+
     # 图片元素必须有 source
     if etype == "image" and "source" not in elem:
         result.issues.append(DSLValidationIssue(
@@ -264,6 +281,13 @@ def _check_element(elem: dict, path: str, result: DSLValidationResult):
                 Severity.WARNING,
                 f"未知图表类型 '{ct}'",
                 f"{path}.chart_type", "chart_type_unknown"))
+        # chart engine 校验
+        engine = (elem.get("extra") or {}).get("engine")
+        if engine and engine not in VALID_CHART_ENGINES:
+            result.issues.append(DSLValidationIssue(
+                Severity.WARNING,
+                f"未知图表引擎 '{engine}'，合法值: {sorted(VALID_CHART_ENGINES)}",
+                f"{path}.extra.engine", "chart_engine_unknown"))
 
     # 位置校验
     pos = elem.get("position")

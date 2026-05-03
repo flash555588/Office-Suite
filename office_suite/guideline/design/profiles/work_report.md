@@ -91,13 +91,13 @@ Each slide leads with results, not process. Leadership wants to know WHAT was ac
 
 Problems and challenges must be paired with proposed solutions. Raising issues without action plans is incomplete reporting.
 
-## Prohibited Patterns
+## Design Guidance
 
-| Pattern | Why It Fails |
-|---------|-------------|
-| Qualitative achievements without numbers | "Significant improvement" is unverifiable |
-| Charts without comparison benchmarks | A number in isolation has no meaning |
-| Pure text lists for process content | Structured graphics are faster to scan |
-| More than 4 colors | Professional restraint projects competence |
-| Decorative imagery | Every pixel must serve information delivery |
-| Text effects (shadow, glow) | Standard bold is sufficient for emphasis |
+| Pattern | Guidance |
+|---------|----------|
+| Qualitative achievements without numbers | Blocker -- "Significant improvement" is unverifiable |
+| Charts without comparison benchmarks | Blocker -- a number in isolation has no meaning |
+| Pure text lists for process content | Avoid -- structured graphics are faster to scan |
+| More than 4 colors | Prefer restraint on content pages; additional colors permitted on cover/closing for brand expression |
+| Decorative imagery | Avoid on content pages; permitted on cover/closing for thematic atmosphere |
+| Text effects (shadow, glow) | Avoid on data pages; permitted on cover/closing headers for visual impact |

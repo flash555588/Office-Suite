@@ -38,7 +38,7 @@ class ElementPriority(Enum):
 
 # P0 支持的元素类型
 P0_ELEMENT_TYPES = {
-    "text", "image", "shape", "table", "chart", "group", "semantic_icon"
+    "text", "image", "shape", "table", "chart", "group", "semantic_icon", "component"
 }
 
 # P1 支持的元素类型
@@ -117,6 +117,7 @@ class Element:
     """DSL 元素节点"""
     type: str
     content: str | None = None
+    format: str = "plain"  # plain | markdown | latex | rich
     source: str | dict | None = None
     style: str | StyleSpec | None = None
     style_ref: str | None = None
@@ -170,6 +171,8 @@ class Document:
     theme: str = "default"
     title: str = ""
     style_preset: str = ""  # 设计令牌预设：corporate/editorial/creative/minimal/tech/elegant/flat/chinese/warm
+    design_manifest: str = ""  # AI 自主设计宣言：描述本 deck 的视觉概念
+    auto_enhance: bool = False  # 是否启用编译器自动增强（背景注入/装饰注入），默认关闭
     data: dict[str, DataBinding] = field(default_factory=dict)
     styles: dict[str, StyleSpec] = field(default_factory=dict)
     slides: list[Slide] = field(default_factory=list)

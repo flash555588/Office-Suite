@@ -32,12 +32,12 @@ Body text at 13pt, never below 12pt. The audience reads body text only after the
 
 Each slide's title is its conclusion. The body provides evidence. This inverts the traditional "topic -> detail" pattern into "conclusion -> justification", reducing the audience's time-to-insight.
 
-## Prohibited Patterns
+## Design Guidance
 
-| Pattern | Why It Fails |
-|---------|-------------|
-| Text-only slides | Eliminates the visual processing channel |
-| More than 4 colors | Fragments semantic color coding |
-| Decorative icons without information content | Consumes spatial budget without adding meaning |
-| Shadow and gradient effects | Increases visual noise without improving hierarchy |
-| Font sizes below 12pt | Unreadable in projection environments |
+| Pattern | Guidance |
+|---------|----------|
+| Text-only slides | Avoid -- eliminates the visual processing channel |
+| More than 4 colors | Avoid -- fragments semantic color coding |
+| Decorative icons without information content | Avoid -- consumes spatial budget without adding meaning |
+| Shadow and gradient effects | Use sparingly and intentionally -- when they serve hierarchy or brand, they are valid design tools |
+| Font sizes below 12pt | Avoid -- unreadable in projection environments |

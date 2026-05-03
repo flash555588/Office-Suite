@@ -24,6 +24,12 @@ from .critique import (
     CritiqueSeverity,
     critique_document,
 )
+from .media import (
+    collect_dsl_media,
+    import_media,
+    import_media_batch,
+    update_dsl_image_paths,
+)
 
 __all__ = [
     # intent
@@ -42,4 +48,9 @@ __all__ = [
     "CritiqueReport",
     "CritiqueSeverity",
     "critique_document",
+    # media
+    "import_media",
+    "import_media_batch",
+    "collect_dsl_media",
+    "update_dsl_image_paths",
 ]

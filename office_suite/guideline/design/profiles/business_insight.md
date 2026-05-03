@@ -60,13 +60,13 @@ Content layers: Conclusion -> Evidence -> Implication. Not: Background -> Analys
 
 Source attributions use `<a href="url">` hyperlinks for traceability.
 
-## Prohibited Patterns
+## Design Guidance
 
-| Pattern | Why It Fails |
-|---------|-------------|
-| Shadows on any element | Creates false depth hierarchy |
-| Gradient fills | Adds visual noise to data |
-| Decorative icons | Information density budget is too precious for non-data elements |
-| Data without sources | Destroys credibility in analytical contexts |
-| Single large chart filling entire page | Wastes spatial budget; pair with interpretation text |
+| Pattern | Guidance |
+|---------|----------|
+| Shadows on any element | Avoid unless the design concept explicitly calls for depth (e.g., floating metric cards on dark backgrounds) |
+| Gradient fills | Avoid on data-dense content pages; permitted on cover/closing pages for brand expression |
+| Decorative icons | Avoid -- information density budget is too precious for non-data elements |
+| Data without sources | Blocker -- destroys credibility in analytical contexts |
+| Single large chart filling entire page | Avoid -- wastes spatial budget; pair with interpretation text |
 | Vague qualifiers ("significant", "substantial") | Replace with specific numbers |

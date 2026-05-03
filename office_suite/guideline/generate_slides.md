@@ -156,7 +156,7 @@ The 4-level type scale is not a style preference -- it is a **hierarchy encoding
 | Body | 12-13pt | 400 | **Evidence carrier** -- supports the key message |
 | Caption | 9-10pt | 400 | **Metadata layer** -- sources, dates, navigation |
 
-**Constraint**: Maximum 4 distinct font sizes per slide. Exceeding this fragments the hierarchy and increases search time for the audience.
+**Constraint**: Maximum 6 distinct font sizes per slide. Exceeding this fragments the hierarchy and increases search time for the audience. Rich typographic compositions (data posters, magazine layouts) may use up to 6 levels.
 
 ### 3.3 Card System as Cognitive Container
 
@@ -174,7 +174,7 @@ Card = rounded_rectangle(bg_surface) + border(border_color)
 Rules:
 - One card = one information chunk
 - No card nesting (destroys the containment signal)
-- Consistent radius (3mm) across all cards (consistency reduces processing cost)
+- Recommended radius: 3mm (varies 0-8mm for stylistic effect; keep consistent within a slide)
 
 ### 3.4 Composition Families as Attention Scaffolds
 
@@ -198,13 +198,13 @@ Each composition defines an **attention routing path** -- the sequence of eye fi
 Spatial rhythm uses consistent intervals to create predictability, reducing the audience's spatial search cost:
 
 ```text
-Page margins:   20mm L/R, 16mm top, 12mm bottom
+Page margins:   20mm L/R, 16mm top, 12mm bottom (recommended)
 Title band:     y 16-32mm
 Body region:    y 40-116mm
 Footer:         y 124-132mm
-Card gap:       4mm (Gestalt proximity threshold)
+Card gap:       4mm recommended (2-8mm depending on density intent)
 Group gap:      8mm (semantic boundary)
-Card padding:   4mm internal (content breathing room)
+Card padding:   4mm internal (adjust 2-6mm for density control)
 ```
 
 ---

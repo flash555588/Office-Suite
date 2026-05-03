@@ -322,6 +322,8 @@ TYPE_MAP = {
     "audio": NodeType.AUDIO,
     "diagram": NodeType.DIAGRAM,
     "code": NodeType.CODE,
+    "3d_model": NodeType.MODEL_3D,
+    "map": NodeType.MAP,
 }
 
 
@@ -527,6 +529,7 @@ def _with_layer_metadata(elem: Element, layer_name: str, order: int) -> Element:
     return Element(
         type=elem.type,
         content=elem.content,
+        format=getattr(elem, "format", "plain"),
         source=elem.source,
         style=elem.style,
         style_ref=elem.style_ref,
@@ -541,6 +544,84 @@ def _with_layer_metadata(elem: Element, layer_name: str, order: int) -> Element:
         animation=elem.animation,
         children=elem.children,
         extra=extra,
+    )
+
+
+def _compile_component(
+    elem: Element,
+    global_styles: dict[str, StyleSpec],
+    doc_styles: dict[str, IRStyle],
+    theme_name: str = "default",
+    parent_w: float = SLIDE_WIDTH_MM,
+    parent_h: float = SLIDE_HEIGHT_MM,
+    path: str = "",
+) -> IRNode:
+    """将 DSL 组件元素编译为 IRNode（GROUP 包裹展开后的子节点）
+
+    DSL 格式：
+        type: component
+        extra:
+          component: chart_card
+          title: "月度营收"
+          chart_type: bar
+          categories: ["Q1", "Q2", "Q3", "Q4"]
+          series: [{ name: "营收", values: [8000, 9500, 10500, 12000] }]
+          position: { x: 25mm, y: 30mm, width: 200mm, height: 90mm }
+
+    组件展开后生成的子 IRNode 被放入 GROUP 容器。
+    """
+    from ..components.registry import generate_component
+
+    comp_name = elem.extra.get("component", "")
+    if not comp_name:
+        logger.warning("组件元素缺少 component 名称，降级为 shape: %s", path)
+        node_type = NodeType.SHAPE
+        return IRNode(
+            node_type=node_type,
+            position=compile_position(elem.position, parent_w, parent_h) or IRPosition(),
+            style=IRStyle(),
+            extra={"_warning": "missing component name"},
+        )
+
+    # 收集组件参数（排除元数据 key）
+    _META_KEYS = {"component", "layer", "z_index", "layout", "spacing", "padding_top"}
+    params: dict[str, Any] = {k: v for k, v in elem.extra.items() if k not in _META_KEYS}
+
+    # 将 position 信息传给组件
+    if elem.position:
+        ir_pos = compile_position(elem.position, parent_w, parent_h)
+        if ir_pos:
+            params.setdefault("position", {
+                "x": ir_pos.x_mm,
+                "y": ir_pos.y_mm,
+                "width": ir_pos.width_mm,
+                "height": ir_pos.height_mm,
+            })
+
+    try:
+        child_nodes = generate_component(comp_name, params)
+    except ValueError as exc:
+        logger.warning("组件 %r 展开失败，降级为 shape: %s", comp_name, exc)
+        return IRNode(
+            node_type=NodeType.SHAPE,
+            position=compile_position(elem.position, parent_w, parent_h) or IRPosition(),
+            style=IRStyle(),
+            extra={"_warning": str(exc)},
+        )
+
+    # 将组件的子节点放入 GROUP 容器
+    group_pos = compile_position(elem.position, parent_w, parent_h) or IRPosition()
+    # 调整子节点坐标：组件内部使用相对坐标，需要加上组件的绝对位置偏移
+    for child in child_nodes:
+        child.position.x_mm += group_pos.x_mm
+        child.position.y_mm += group_pos.y_mm
+
+    return IRNode(
+        node_type=NodeType.GROUP,
+        position=group_pos,
+        style=IRStyle(),
+        children=child_nodes,
+        extra={"component": comp_name},
     )
 
 
@@ -591,6 +672,9 @@ def compile_element(
     """
     if elem.type == "semantic_icon":
         return _compile_semantic_icon(elem, path)
+
+    if elem.type == "component":
+        return _compile_component(elem, global_styles, doc_styles, theme_name, parent_w, parent_h, path)
 
     node_type = TYPE_MAP.get(elem.type, NodeType.SHAPE)
 
@@ -680,6 +764,7 @@ def compile_element(
             child = Element(
                 type=child.type,
                 content=child.content,
+                format=getattr(child, "format", "plain"),
                 source=child.source,
                 style=child.style,
                 style_ref=child.style_ref,
@@ -729,6 +814,7 @@ def compile_element(
         node_type=node_type,
         id=elem.extra.get("id", ""),
         content=content,
+        content_format=elem.format if hasattr(elem, "format") else "plain",
         source=source,
         position=ir_pos,
         style=cascaded_style,
@@ -1126,6 +1212,7 @@ def compile_slide(
                 elem = Element(
                     type=elem.type,
                     content=elem.content,
+                    format=getattr(elem, "format", "plain"),
                     source=elem.source,
                     style=elem.style,
                     style_ref=elem.style_ref,
@@ -1254,8 +1341,8 @@ def compile_document(doc: Document) -> IRDocument:
             else:
                 doc_ir_styles[name] = compiled
 
-    # 幻灯片类型自动增强：当有 style_preset 时，为无背景的幻灯片注入默认背景
-    if preset_name:
+    # 幻灯片类型自动增强：当 auto_enhance=True 且有 style_preset 时，为无背景的幻灯片注入默认背景
+    if doc.auto_enhance and preset_name:
         _auto_enhance_slides(doc.slides, preset_name)
 
     # 编译幻灯片

@@ -112,9 +112,9 @@ Typography is not just hierarchy encoding (covered in generate_slides.md). It is
 
 ### 3.2 Typographic Composition Rules
 
-- **Maximum 2 font families per slide** (1 for titles, 1 for body). Single family preferred.
+- **Maximum 3 font families per slide** (e.g., display + body + accent). Single family is simplest.
 - **Contrast through weight and size**, not through multiple families.
-- **Never use more than 4 distinct font sizes on a single slide.**
+- **Maximum 6 distinct font sizes on a single slide** for rich typographic hierarchy (data posters, magazine layouts may need more levels).
 - **Title text should be short enough to fit on one line.** If the title wraps, it is too long -- shorten the title, do not shrink the font.
 - **Body text alignment**: Left-aligned for sentences (default). Center-aligned only for short labels, badges, and tile content. Never center-align paragraphs.
 
@@ -187,7 +187,7 @@ Consecutive slides should NOT use the same composition skeleton. The rule of non
 Accent color usage should have rhythm:
 - Use accent on 60-80% of content slides (for titles at minimum)
 - Reserve slides without accent for dramatic contrast (a fully monochrome page followed by accent reintroduction)
-- Never use accent for more than 30% of any single slide's visual area (accent is emphasis, not fill)
+- Accent color is typically emphasis-level (~30% of visual area), but promotional and brand slides may use it more aggressively when the design concept calls for it
 
 ---
 
@@ -197,20 +197,20 @@ Accent color usage should have rhythm:
 
 Cards in Office Suite follow these visual standards:
 
-| Parameter | Standard | Rationale |
-|-----------|----------|-----------|
-| Corner radius | 3mm (all cards, no variation) | Consistency reduces processing cost |
+| Parameter | Recommended Default | Rationale |
+|-----------|-------------------|-----------|
+| Corner radius | 3mm (recommended; vary 0-8mm for stylistic effect) | Consistency by default, variation for intentional design |
 | Border | 1pt, border token color | Subtle containment signal |
 | Fill | bg_surface token | Distinct from page background |
-| Internal padding | 4mm on all sides | Content breathing room |
-| Shadow | None | Flat design for clean rendering |
+| Internal padding | 4mm on all sides (adjust 2-6mm for density control) | Content breathing room |
+| Shadow | Optional -- use for depth hierarchy when the design concept calls for it | Adds visual layering when intentional |
 
 ### 6.2 Card Grid Alignment
 
 Cards in a grid must be:
 - **Same width**: All cards in a row share identical width
 - **Same height**: All cards in a group share identical height
-- **Even spacing**: 4mm gap between cards, consistent in both axes
+- **Even spacing**: 4mm gap between cards (recommended; 2-8mm depending on density intent)
 - **Aligned to grid**: Left edges aligned, top edges aligned
 
 ### 6.3 Card Content Density
@@ -240,26 +240,33 @@ Every visual element on a slide must carry information. "Decoration" in Office S
 | Diamond shape (closing) | "This is the end" |
 | Page marker | "You are here in the deck" |
 
-### 7.2 Prohibited Decorative Patterns
+### 7.2 Decorative Patterns -- Use with Intent
 
-| Pattern | Why |
-|---------|-----|
-| Drop shadows | Creates false depth hierarchy |
-| Gradient fills on cards | Adds visual noise without information |
-| Decorative borders (double, dashed, ornamental) | Signals decoration over content |
-| Background textures | Competes with content for attention |
-| Animated GIFs or emoji | Breaks professional visual tone |
-| Stock watermarks | Destroys credibility |
-| Decorative shapes unrelated to content | Consumes spatial budget without meaning |
+The following patterns are **not prohibited**, but must serve a clear design purpose. If removing the element does not reduce the slide's communicative power, remove it.
 
-### 7.3 Permitted Decorative Elements
+| Pattern | When It Works | When It Fails |
+|---------|--------------|---------------|
+| Drop shadows | Layered depth on dark backgrounds; floating card aesthetics | Every element having shadows = visual noise |
+| Gradient fills on cards | Premium feel; brand-aligned atmospheric depth; hero cards | Data-dense slides where clarity > aesthetics |
+| Decorative borders (dashed, ornamental) | Playful/creative contexts; placeholder regions | Formal business contexts without thematic reason |
+| Background textures | Brand storytelling; immersive cover/closing pages | Content pages where text readability suffers |
+| Animated GIFs or emoji | Casual/educational contexts | Formal business presentations |
+| Stock watermarks | Never acceptable | Always destroys credibility |
+| Decorative shapes unrelated to content | Brand identity reinforcement; atmospheric context | Consuming spatial budget without meaning |
 
-| Element | Constraint |
-|---------|-----------|
-| Thin horizontal lines | 0.5mm height, accent color, for section separation only |
-| Diamond/rhombus shapes | Closing pages only, as visual punctuation |
-| Gradient overlays on images | For text readability, not decoration |
-| Rounded rectangles | Card containers only (not standalone decoration) |
+### 7.3 Decorative Elements
+
+These are common decorative choices. The list is non-exhaustive -- AI is free to invent new decorative treatments that serve the design concept.
+
+| Element | Typical Use |
+|---------|------------|
+| Thin horizontal lines | Section separation, accent punctuation |
+| Diamond/rhombus shapes | Closing pages, visual punctuation |
+| Gradient overlays on images | Text readability, atmospheric depth |
+| Rounded rectangles | Card containers, buttons, badges |
+| Background geometric shapes | Brand identity, atmospheric context (circles, blobs, abstract forms) |
+| Textured fills | Brand storytelling, immersive backgrounds |
+| Decorative borders | Creative/artisanal contexts, placeholder regions |
 
 ---
 
@@ -281,20 +288,20 @@ Apply this checklist to every slide before rendering:
 - [ ] Temperature is consistent with adjacent slides
 
 ### Typography
-- [ ] <= 4 distinct font sizes
-- [ ] <= 2 font families
-- [ ] Title fits on one line
+- [ ] <= 6 distinct font sizes
+- [ ] <= 3 font families
+- [ ] Title fits on one line (or intentionally wraps for effect)
 - [ ] Body text is left-aligned (or center only for short labels)
 
 ### Cards
 - [ ] Same-size cards in each grid row
-- [ ] 4mm gaps between cards
+- [ ] Consistent gaps between cards (recommended 4mm; 2-8mm depending on density)
 - [ ] Content within density limits per card width
-- [ ] No card nesting
+- [ ] No card nesting (unless intentional containment hierarchy)
 
 ### Decoration
-- [ ] Every visual element carries information
-- [ ] No shadows, no gradient fills, no ornamental borders
+- [ ] Every decorative element has a purpose (brand, atmosphere, hierarchy)
+- [ ] Shadows, gradients, and ornamental elements are intentional, not default
 - [ ] Consistent image treatment across deck
 ```
 
@@ -307,7 +314,6 @@ Some domain profiles override specific art direction rules:
 | Domain | Override |
 |--------|---------|
 | promotion | Center placement IS allowed on content pages (slogan pages) |
-| promotion | Gradient overlays on solid backgrounds ARE permitted (atmospheric depth) |
 | promotion | Large whitespace IS intentional (not imbalance) |
 | business_insight | Accent color may be used for >30% of a chart's visual area |
 | education | Up to 4 semantic colors ARE permitted (beyond the 6-token limit) for knowledge category coding |

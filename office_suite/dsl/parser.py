@@ -113,7 +113,7 @@ def parse_element(raw: dict[str, Any]) -> Element:
     # extra 字段：收集所有非标准属性
     # 特殊处理：YAML 中的 "extra" 键会展开合并，避免嵌套
     EXCLUDE_KEYS = {
-        "type", "content", "source", "style", "style_ref", "position",
+        "type", "content", "format", "source", "style", "style_ref", "position",
         "data_ref", "chart_type", "query", "prompt",
         "size", "opacity", "filter", "animation", "children",
         "catalog_ref", "catalog_id", "catalog_params", "params",
@@ -132,6 +132,7 @@ def parse_element(raw: dict[str, Any]) -> Element:
     return Element(
         type=raw.get("type", "text"),
         content=raw.get("content"),
+        format=raw.get("format", "plain"),
         source=raw.get("source", raw.get("src")),
         style_ref=raw.get("style_ref"),
         style=raw.get("style"),  # 可以是字符串引用或内联样式
@@ -341,6 +342,8 @@ def parse_document(raw: dict[str, Any], base_dir: Path | None = None) -> Documen
         theme=raw.get("theme", "default"),
         title=raw.get("title", ""),
         style_preset=raw.get("style_preset", ""),
+        design_manifest=raw.get("design_manifest", ""),
+        auto_enhance=bool(raw.get("auto_enhance", False)),
         data=data_bindings,
         styles=styles,
         slides=slides,

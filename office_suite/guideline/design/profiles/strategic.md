@@ -69,13 +69,13 @@ Each slide maps to one node in the framework. The transition between slides crea
 | Funding allocation | 4 independent donut charts (not a single combined chart) |
 | Unit economics | Big number decomposition (CAC, LTV, margin) |
 
-## Prohibited Patterns
+## Design Guidance
 
-| Pattern | Why It Fails |
-|---------|-------------|
-| Claims without data | Strategic audiences verify every assertion |
-| Vague competitive analysis | "We have no competitors" destroys credibility |
-| Returns described qualitatively | "Significant growth potential" is meaningless without a number |
-| Over-decorated slides | Signals style over substance in an analytical context |
-| More than 7 information points per page | Exceeds decision-maker attention budget |
+| Pattern | Guidance |
+|---------|----------|
+| Claims without data | Blocker -- strategic audiences verify every assertion |
+| Vague competitive analysis | Blocker -- "We have no competitors" destroys credibility |
+| Returns described qualitatively | Blocker -- "Significant growth potential" is meaningless without a number |
+| Over-decorated slides | Avoid on analytical content pages; visual effects (shadows, gradients) are valid on cover/closing/key moments for brand expression |
+| More than 7 information points per page | Avoid -- exceeds decision-maker attention budget |
 | Generic stock images | Use actual product screenshots or team photos |

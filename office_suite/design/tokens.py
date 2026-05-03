@@ -233,26 +233,26 @@ class FontSpec:
     line_height: float = 1.4
 
 
-# Major Second 模块化音阶 (ratio=1.25)，body 13pt 为基准
-# 8 → 10 → 13 → 16 → 20 → 25 → 32 → 40
+# Major Second 模块化音阶 (ratio=1.25)，body 12pt 为基准
+# 7 → 9 → 12 → 15 → 19 → 24 → 31 → 39
 # 大字号用 tighter leading，小字号用 looser leading
 TYPOGRAPHY: dict[str, FontSpec] = {
-    "cover_title": FontSpec(size=36, weight=700, line_height=1.15),
-    "cover_subtitle": FontSpec(size=16, weight=400, line_height=1.4),
-    "section_title": FontSpec(size=28, weight=700, line_height=1.2),
-    "heading": FontSpec(size=20, weight=700, line_height=1.25),
-    "subheading": FontSpec(size=16, weight=600, line_height=1.3),
-    "body": FontSpec(size=13, weight=400, line_height=1.5),
-    "body_small": FontSpec(size=11, weight=400, line_height=1.55),
-    "caption": FontSpec(size=10, weight=400, line_height=1.6),
-    "annotation": FontSpec(size=8, weight=400, line_height=1.6),
-    "data_large": FontSpec(size=36, weight=700, line_height=1.1),
-    "data_value": FontSpec(size=25, weight=700, line_height=1.2),
-    "data_label": FontSpec(size=11, weight=400, line_height=1.4),
-    "table_header": FontSpec(size=10, weight=600, line_height=1.4),
-    "table_body": FontSpec(size=9, weight=400, line_height=1.5),
-    "chart_title": FontSpec(size=11, weight=600, line_height=1.4),
-    "chart_label": FontSpec(size=8, weight=400, line_height=1.5),
+    "cover_title": FontSpec(size=35, weight=700, line_height=1.15),
+    "cover_subtitle": FontSpec(size=15, weight=400, line_height=1.4),
+    "section_title": FontSpec(size=27, weight=700, line_height=1.2),
+    "heading": FontSpec(size=19, weight=700, line_height=1.25),
+    "subheading": FontSpec(size=15, weight=600, line_height=1.3),
+    "body": FontSpec(size=12, weight=400, line_height=1.5),
+    "body_small": FontSpec(size=10, weight=400, line_height=1.55),
+    "caption": FontSpec(size=9, weight=400, line_height=1.6),
+    "annotation": FontSpec(size=7, weight=400, line_height=1.6),
+    "data_large": FontSpec(size=35, weight=700, line_height=1.1),
+    "data_value": FontSpec(size=24, weight=700, line_height=1.2),
+    "data_label": FontSpec(size=10, weight=400, line_height=1.4),
+    "table_header": FontSpec(size=9, weight=600, line_height=1.4),
+    "table_body": FontSpec(size=8, weight=400, line_height=1.5),
+    "chart_title": FontSpec(size=10, weight=600, line_height=1.4),
+    "chart_label": FontSpec(size=7, weight=400, line_height=1.5),
 }
 
 

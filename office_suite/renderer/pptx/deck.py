@@ -412,7 +412,23 @@ class PPTXRenderer(BaseRenderer):
 
         pos = self._get_position(node)
         style = self._resolve_style(node, doc)
-        style = self._fit_text_style_to_box(node.content or "", pos, style, node)
+
+        # 根据 content_format 预处理内容
+        content = node.content or ""
+        rich_doc = None
+        if node.content_format == "markdown" and content:
+            from ...engine.text.markdown_parser import parse_markdown
+            rich_doc = parse_markdown(content)
+            content = rich_doc.plain_text
+        elif node.content_format == "latex" and content:
+            from ...engine.text.latex_parser import latex_to_unicode
+            content = latex_to_unicode(content)
+        elif node.content_format == "rich" and isinstance(node.content, (list, dict)):
+            from ...engine.text.rich_text import parse_rich_text
+            rich_doc = parse_rich_text(node.content)
+            content = rich_doc.plain_text
+
+        style = self._fit_text_style_to_box(content, pos, style, node)
 
         left, top, width, height = self._pos_to_emu(pos)
         if pos.is_center:
@@ -423,7 +439,59 @@ class PPTXRenderer(BaseRenderer):
         tf.word_wrap = not self._is_wrap_disabled(node)
 
         p = tf.paragraphs[0]
-        p.text = node.content or ""
+
+        # 有 rich_doc 时使用多 run 渲染，否则用纯文本
+        if rich_doc and rich_doc.paragraphs:
+            first_para = rich_doc.paragraphs[0]
+            from ...engine.text.rich_text import to_pptx_runs
+            run_params = to_pptx_runs(first_para)
+            if run_params:
+                # 清空默认 run，用解析后的 runs 替代
+                p.clear()
+                for rp in run_params:
+                    run = p.add_run()
+                    run.text = rp["text"]
+                    if rp.get("bold"):
+                        run.font.bold = True
+                    if rp.get("italic"):
+                        run.font.italic = True
+                    if rp.get("underline"):
+                        run.font.underline = True
+                    if rp.get("color"):
+                        from pptx.util import Pt
+                        from pptx.dml.color import RGBColor
+                        run.font.color.rgb = RGBColor.from_string(rp["color"].lstrip("#"))
+                    if rp.get("font_size"):
+                        from pptx.util import Pt
+                        run.font.size = Pt(rp["font_size"])
+                    if rp.get("font_family"):
+                        run.font.name = rp["font_family"]
+
+                # 后续段落（Markdown 的多段落）
+                for para_data in rich_doc.paragraphs[1:]:
+                    new_p = tf.add_paragraph()
+                    for rp in to_pptx_runs(para_data):
+                        run = new_p.add_run()
+                        run.text = rp["text"]
+                        if rp.get("bold"):
+                            run.font.bold = True
+                        if rp.get("italic"):
+                            run.font.italic = True
+                        if rp.get("color"):
+                            from pptx.dml.color import RGBColor
+                            run.font.color.rgb = RGBColor.from_string(rp["color"].lstrip("#"))
+                        if rp.get("font_size"):
+                            from pptx.util import Pt
+                            run.font.size = Pt(rp["font_size"])
+                        if rp.get("font_family"):
+                            run.font.name = rp["font_family"]
+                # 使用第一个段落作为主段落引用
+                p = tf.paragraphs[0]
+            else:
+                p.text = content
+        else:
+            p.text = content
+
         self._apply_text_layout(tf, p, node)
 
         if style:
@@ -887,7 +955,24 @@ class PPTXRenderer(BaseRenderer):
                   values: [100, 120, 150, 180]
                 - name: "利润"
                   values: [30, 40, 50, 60]
+
+        外部引擎示例（extra.engine 指定渲染器）：
+          - type: chart
+            chart_type: bar
+            position: { x: 20mm, y: 40mm, width: 200mm, height: 100mm }
+            extra:
+              engine: matplotlib        # matplotlib / plotly / vega-lite / ggplot2 / pgfplots
+              categories: ["Q1", "Q2", "Q3", "Q4"]
+              series:
+                - name: "营收"
+                  values: [100, 120, 150, 180]
         """
+        # 外部图表引擎：渲染为 PNG 后嵌入
+        engine_name = node.extra.get("engine")
+        if engine_name and engine_name != "native":
+            self._render_engine_chart(slide, node, doc)
+            return
+
         pos = self._get_position(node)
         left, top, width, height = self._pos_to_emu(pos)
 
@@ -918,6 +1003,70 @@ class PPTXRenderer(BaseRenderer):
 
         # 应用主题色到系列
         self._apply_chart_colors(chart, node)
+
+    def _render_engine_chart(self, slide, node: IRNode, doc: IRDocument):
+        """通过外部图表引擎渲染为 PNG 后以图片形式嵌入
+
+        支持引擎：matplotlib / plotly / vega-lite / ggplot2 / pgfplots
+        """
+        import logging
+        import tempfile
+        from pathlib import Path as _Path
+        from ...engine.chart import render_chart_image
+
+        log = logging.getLogger(__name__)
+
+        # 收集数据
+        data: dict = {}
+        if node.data_ref and doc is not None and node.data_ref in doc.data:
+            ref_val = doc.data[node.data_ref]
+            if isinstance(ref_val, dict):
+                data = ref_val
+        if not data:
+            data = {
+                "categories": node.extra.get("categories", []),
+                "series": node.extra.get("series", []),
+            }
+            if "data" in node.extra:
+                data["raw_data"] = node.extra["data"]
+
+        chart_type = node.chart_type or node.extra.get("chart_type", "bar")
+        pos = self._get_position(node)
+        # 估算像素尺寸：1mm ≈ 3.78px
+        w_px = int(pos.width_mm * 3.78)
+        h_px = int(pos.height_mm * 3.78)
+
+        # 渲染到临时目录，再嵌入 PPTX
+        out_dir = _Path(tempfile.mkdtemp(prefix="pptx_chart_"))
+        try:
+            png_path = render_chart_image(
+                chart_type=chart_type,
+                data=data,
+                extra=dict(node.extra),
+                output_dir=out_dir,
+                width_px=max(w_px, 640),
+                height_px=max(h_px, 360),
+                dpi=node.extra.get("dpi", 150),
+            )
+            # 以图片形式嵌入
+            left, top, width, height = self._pos_to_emu(pos)
+            if png_path.exists():
+                slide.shapes.add_picture(str(png_path), left, top, width, height)
+            else:
+                log.warning(f"图表引擎未生成文件: {png_path}")
+                self._render_placeholder(slide, node, left, top, width, height)
+        except Exception as e:
+            log.warning(f"外部图表引擎渲染失败: {e}")
+            # 降级为原生 python-pptx 图表
+            try:
+                chart_type_str = chart_type
+                xl_chart_type = CHART_TYPE_MAP.get(chart_type_str, XL_CHART_TYPE.BAR_CLUSTERED)
+                chart_data = self._build_chart_data(node, doc)
+                left_emu, top_emu, w_emu, h_emu = self._pos_to_emu(pos)
+                slide.shapes.add_chart(xl_chart_type, left_emu, top_emu, w_emu, h_emu, chart_data)
+            except Exception:
+                left, top, width, height = self._pos_to_emu(pos)
+                self._render_placeholder(slide, node, left, top, width, height)
 
     def _build_chart_data(self, node: IRNode, doc: IRDocument | None = None) -> CategoryChartData:
         """从 IRNode 构建 CategoryChartData

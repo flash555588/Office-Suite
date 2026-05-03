@@ -22,8 +22,10 @@ from typing import Any
 # ============================================================
 
 PPTX_CAPABILITIES = {
-    "node_types": {"text", "image", "shape", "chart", "table", "group", "video", "diagram"},
+    "node_types": {"text", "image", "shape", "chart", "table", "group",
+                   "component", "semantic_icon", "video", "diagram"},
     "layout_modes": {"absolute", "relative"},
+    "content_formats": {"plain", "markdown", "latex", "rich"},
     "text_transforms": {
         "arch", "arch_up", "arch_down", "wave", "wave_2", "circle",
         "slant_up", "slant_down", "triangle", "chevron_up", "chevron_down",
@@ -36,19 +38,30 @@ PPTX_CAPABILITIES = {
     },
     "effects": {"shadow", "glow", "gradient_fill", "reflection", "soft_edge"},
     "chart_types": {
-        "bar", "column", "line", "pie", "area", "scatter",
+        # 原生 python-pptx 图表
+        "bar", "bar_stacked", "column", "column_stacked",
+        "line", "line_marked", "pie", "area", "scatter",
         "doughnut", "radar", "bubble", "stock", "surface",
+        # 外部引擎图表（渲染为 PNG 嵌入）
+        "heatmap", "box", "violin", "histogram", "density",
+        "funnel", "sunburst", "treemap",
     },
+    "chart_engines": {"native", "matplotlib", "plotly", "vega-lite", "ggplot2", "pgfplots"},
     "fallbacks": {
         "video": "image",       # 视频 → 图片占位
         "diagram": "image",     # 图表 → 图片
+        "audio": "text",        # 音频 → 文字描述
+        "code": "text",         # 代码 → 文本
+        "3d_model": "text",     # 3D 模型 → 文字描述
+        "map": "text",          # 地图 → 文字描述
         "arch": "plain",        # 艺术字 → 普通文本
     },
 }
 
 DOCX_CAPABILITIES = {
-    "node_types": {"text", "image", "table", "shape"},
+    "node_types": {"text", "image", "table", "shape", "component", "semantic_icon"},
     "layout_modes": {"absolute", "relative"},
+    "content_formats": {"plain", "markdown", "rich"},
     "text_transforms": set(),   # 不支持艺术字
     "animations": set(),        # 不支持动画
     "effects": {"shadow"},
@@ -62,12 +75,13 @@ DOCX_CAPABILITIES = {
 }
 
 XLSX_CAPABILITIES = {
-    "node_types": {"table", "chart", "text"},
+    "node_types": {"table", "chart", "text", "component"},
     "layout_modes": {"absolute"},
+    "content_formats": {"plain"},
     "text_transforms": set(),
     "animations": set(),
     "effects": set(),
-    "chart_types": {"bar", "column", "line", "pie", "area", "scatter"},
+    "chart_types": {"bar", "column", "line", "pie", "scatter", "doughnut", "radar"},
     "fallbacks": {
         "shape": "text",
         "image": "text",
@@ -76,12 +90,13 @@ XLSX_CAPABILITIES = {
 }
 
 PDF_CAPABILITIES = {
-    "node_types": {"text", "image", "shape", "table", "chart"},
+    "node_types": {"text", "image", "shape", "table", "chart", "component"},
     "layout_modes": {"absolute", "relative"},
+    "content_formats": {"plain", "markdown", "latex"},
     "text_transforms": set(),
     "animations": set(),
     "effects": {"shadow"},
-    "chart_types": {"bar", "column", "line", "pie"},
+    "chart_types": {"bar", "column", "line", "pie", "area", "scatter", "doughnut"},
     "fallbacks": {
         "video": "image",
         "diagram": "image",
@@ -89,8 +104,10 @@ PDF_CAPABILITIES = {
 }
 
 HTML_CAPABILITIES = {
-    "node_types": {"text", "image", "shape", "table", "chart", "group", "video", "diagram"},
+    "node_types": {"text", "image", "shape", "table", "chart", "group",
+                   "component", "semantic_icon", "video", "diagram"},
     "layout_modes": {"absolute", "relative", "flex", "grid"},
+    "content_formats": {"plain", "markdown", "latex", "rich"},
     "text_transforms": {"arch", "wave", "slant_up", "slant_down"},
     "animations": {
         "fade_in", "fade_out", "slide_up", "slide_down", "slide_left", "slide_right",

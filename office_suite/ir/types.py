@@ -270,6 +270,7 @@ class IRNode:
     id: str = ""
     # 内容
     content: str | None = None
+    content_format: str = "plain"  # plain | markdown | latex | rich
     source: str | dict | None = None
     # 布局
     position: IRPosition | None = None
