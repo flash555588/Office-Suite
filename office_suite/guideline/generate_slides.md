@@ -209,6 +209,55 @@ Card padding:   4mm internal (adjust 2-6mm for density control)
 
 ---
 
+## Phase 3.5: Visual Asset Acquisition
+
+Visual assets are **mandatory, not optional**. Every deck must evaluate and acquire image material before writing YAML.
+
+### Decision Framework
+
+| Slide Type | Image Requirement | Default Action |
+|-----------|-------------------|----------------|
+| Cover | **Must have** | AI-generate a custom background via MiniMax |
+| Closing | **Must have** | Reuse cover image with different filter |
+| Chapter divider | **Strongly recommended** | AI-generate or Unsplash |
+| Content (metaphor needed) | **Recommended** | AI-generate abstract/scene image |
+| Content (chart/table heavy) | Optional | Gradient/texture background only |
+| Data dashboard | Skip | Native background presets |
+
+### Dual-Track Acquisition
+
+1. **AI Generation Track** — Use `mcp__minimax-image__text_to_image` for:
+   - Custom cover backgrounds tailored to the deck topic
+   - Abstract concept illustrations (concepts Unsplash cannot photograph)
+   - Brand-consistent scene images
+   - Prompts must include: subject + style + color palette + composition
+
+2. **Unsplash Track** — Use `python -m office_suite.tools.unsplash_assets` for:
+   - Real-world scene photos (office, nature, people)
+   - Texture and pattern backgrounds
+   - When API key is unavailable, the tool still generates a search plan (`asset_brief.md`)
+
+### Prompt Quality Standard
+
+Every AI image prompt must answer four questions:
+1. **What** is the subject? (specific, not generic)
+2. **What style** does it use? (photograph / illustration / 3D render / watercolor)
+3. **What colors** dominate? (must align with deck palette)
+4. **What composition** does it have? (focal point position, text overlay space)
+
+Example prompt:
+```
+"abstract network of interconnected knowledge nodes, minimalist digital illustration,
+deep navy blue with gold accent highlights, 16:9 composition with large empty
+area on left half for text overlay, soft gradient background, no text, no watermark"
+```
+
+### Fallback Hierarchy
+
+When AI generation is unavailable: Unsplash → background_presets (gradient/geometric) → solid color + decorative shapes.
+
+---
+
 ## Phase 4: Materialization
 
 ### 4.1 deck.yml Construction

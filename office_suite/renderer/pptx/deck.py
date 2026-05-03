@@ -64,6 +64,21 @@ CHART_TYPE_MAP = {
 }
 
 
+def _ensure_run_rpr(run):
+    """确保文本 run 有 a:rPr 元素。
+
+    OOXML 规范要求每个 a:r 必须有 a:rPr 子元素。
+    python-pptx 只在设置 font 属性时才创建 rPr，
+    因此当 run 未设置任何格式时手动注入空 <a:rPr/>（不影响样式继承）。
+    """
+    from lxml import etree
+    rPr_ns = "{http://schemas.openxmlformats.org/drawingml/2006/main}rPr"
+    if run._r.find(rPr_ns) is None:
+        # a:rPr 必须是 a:r 的第一个子元素（在 a:t 之前）
+        rpr = etree.Element(rPr_ns)
+        run._r.insert(0, rpr)
+
+
 class PPTXRenderer(BaseRenderer):
     """PowerPoint 渲染器
 
@@ -149,6 +164,11 @@ class PPTXRenderer(BaseRenderer):
         slide_layout = self._prs.slide_layouts[layout_idx]
         slide = self._prs.slides.add_slide(slide_layout)
 
+        # 重置动画计数器和缓冲区，确保每个 slide 内 ID 唯一
+        from .animation import reset_anim_id_counter, reset_anim_buffer, flush_slide_animations
+        reset_anim_id_counter()
+        reset_anim_buffer()
+
         # 设置背景
         bg_board = slide_node.extra.get("background_board")
         if bg_board:
@@ -170,6 +190,9 @@ class PPTXRenderer(BaseRenderer):
         # 渲染元素
         for elem_node in slide_node.children:
             self._render_element(slide, elem_node, doc)
+
+        # 所有形状渲染完毕后，统一分组写入动画 XML
+        flush_slide_animations(slide)
 
     def _resolve_layout_if_needed(self, slide_node: IRNode):
         """若幻灯片使用 grid/flex/constraint/语义布局，解析子元素位置。"""
@@ -451,6 +474,7 @@ class PPTXRenderer(BaseRenderer):
                 for rp in run_params:
                     run = p.add_run()
                     run.text = rp["text"]
+                    _ensure_run_rpr(run)
                     if rp.get("bold"):
                         run.font.bold = True
                     if rp.get("italic"):
@@ -473,6 +497,7 @@ class PPTXRenderer(BaseRenderer):
                     for rp in to_pptx_runs(para_data):
                         run = new_p.add_run()
                         run.text = rp["text"]
+                        _ensure_run_rpr(run)
                         if rp.get("bold"):
                             run.font.bold = True
                         if rp.get("italic"):
@@ -489,8 +514,12 @@ class PPTXRenderer(BaseRenderer):
                 p = tf.paragraphs[0]
             else:
                 p.text = content
+                for run in p.runs:
+                    _ensure_run_rpr(run)
         else:
             p.text = content
+            for run in p.runs:
+                _ensure_run_rpr(run)
 
         self._apply_text_layout(tf, p, node)
 
@@ -1032,9 +1061,9 @@ class PPTXRenderer(BaseRenderer):
 
         chart_type = node.chart_type or node.extra.get("chart_type", "bar")
         pos = self._get_position(node)
-        # 估算像素尺寸：1mm ≈ 3.78px
-        w_px = int(pos.width_mm * 3.78)
-        h_px = int(pos.height_mm * 3.78)
+        # 估算像素尺寸：1mm ≈ 7.56px (192 DPI)，保证图表高清
+        w_px = int(pos.width_mm * 7.56)
+        h_px = int(pos.height_mm * 7.56)
 
         # 渲染到临时目录，再嵌入 PPTX
         out_dir = _Path(tempfile.mkdtemp(prefix="pptx_chart_"))
@@ -1044,8 +1073,8 @@ class PPTXRenderer(BaseRenderer):
                 data=data,
                 extra=dict(node.extra),
                 output_dir=out_dir,
-                width_px=max(w_px, 640),
-                height_px=max(h_px, 360),
+                width_px=max(w_px, 1920),
+                height_px=max(h_px, 1080),
                 dpi=node.extra.get("dpi", 150),
             )
             # 以图片形式嵌入

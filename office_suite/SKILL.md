@@ -294,10 +294,16 @@ Rules:
 
 #### 4.2 MiniMax Image Generation Track
 
-Read `minimax-multimodal-toolkit/SKILL.md`, then evaluate whether generated images would be stronger than stock photos for the deck's concept, cover, chapter dividers, abstract metaphors, scenario illustrations, product mockups, or custom backgrounds.
+Read `minimax-multimodal-toolkit/SKILL.md`, then proactively generate images for the deck. **Default decision is `use`** — only skip when the deck is purely data-driven (dashboards, financial tables) where images would add noise rather than value.
 
-Always create a MiniMax image plan in `design.md`:
-- Generation decision: `use`, `skip`, or `prompt-brief-only`
+Every deck should have at minimum:
+- 1 cover background image (AI-generated, topic-specific)
+- 1 closing/conclusion image (can reuse cover with different filter)
+
+Additional images for chapter dividers, metaphor illustrations, and scene backgrounds are strongly encouraged.
+
+Create a MiniMax image plan in `design.md`:
+- Generation decision: `use` (default), `skip` (requires documented justification), or `prompt-brief-only`
 - Target slide(s)
 - Prompt(s)
 - Aspect ratio, normally `16:9` for full-slide backgrounds and `1:1` or `4:3` for framed illustrations
@@ -319,8 +325,9 @@ mmx image generate \
 ```
 
 Rules:
-- Generated images must be purposeful assets, not filler decoration.
-- Use generated images when the deck needs a tailored visual metaphor that stock photos cannot provide.
+- **Proactive by default**: Every deck must have a concrete reason to skip image generation, not a reason to use it. The burden of justification is on skipping, not on generating.
+- Generated images must be purposeful assets that reinforce the deck's message, not generic filler.
+- Each image prompt must include subject + style + color palette + composition to ensure quality and palette consistency.
 - Do not place readable text inside generated images; keep all text as PPT elements.
 - Record generated image paths and prompts in `design.md` or an asset manifest.
 - If `mmx` is unavailable, unauthenticated, quota-limited, or blocked, record `prompt-brief-only` in `design.md` and continue with Unsplash/native visuals.

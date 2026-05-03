@@ -236,20 +236,20 @@ def _parse_animations(raw: dict | None) -> list[IRAnimation]:
             continue
 
         # 动画类型推断
-        anim_type = item.get("type", "entry")
-        effect = item.get("effect", item.get("animation", "fade"))
+        # DSL 的 "type" 字段是效果名（fade_in / slide_up 等），不是分类
+        effect = item.get("type") or item.get("effect") or item.get("animation") or "fade"
 
-        # 强调动画自动设置 anim_type
-        emphasis_effects = {"pulse", "shake", "glow_pulse", "breathe", "float",
-                            "spin_emphasis", "grow", "shrink"}
-        if effect in emphasis_effects:
-            anim_type = "emphasis"
-
-        # 退出动画
+        # 根据效果名推断 anim_type 分类
         exit_effects = {"fade_out", "slide_out_up", "slide_out_down", "slide_out_left",
                         "slide_out_right", "zoom_out_exit"}
+        emphasis_effects = {"pulse", "shake", "glow_pulse", "breathe", "float",
+                            "spin_emphasis", "grow", "shrink"}
         if effect in exit_effects:
             anim_type = "exit"
+        elif effect in emphasis_effects:
+            anim_type = "emphasis"
+        else:
+            anim_type = "entry"
 
         animations.append(IRAnimation(
             anim_type=anim_type,

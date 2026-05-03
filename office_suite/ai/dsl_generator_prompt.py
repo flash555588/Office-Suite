@@ -2182,6 +2182,8 @@ GENERATION_RULES = """
 19. **背景图片复用**：同一张图片可以在多页幻灯片中重复引用（`source` 写同一个文件名）。通过在不同页面施加不同滤镜（duotone/blur/brightness/grayscale）实现"同图异感"——封面用原图、内容页用 duotone 色调覆盖、结束页用 blur 模糊化。复用背景图能建立全篇的视觉连贯性，同时每页保持独立个性。不要为每页生成不同图片——一张精心选择的主题图 + 3 种滤镜处理 > 4 张互不相关的图片
 20. **组件与手写混用**：数据密集页（季度报告、指标汇总、进度展示）优先使用组件（`type: component` + `extra.component`）；创意页（封面、结束页、转折页）和需要个性化构图的页面使用手写元素。两者可以在同一页混用——比如用 chart_card 组件展示图表，再手写装饰形状和注释文字。组件展开后的坐标自动相对于组件的 position 偏移，不需要手动计算
 21. **图表引擎选择**：简单柱状图/折线图/饼图不指定 `engine`（原生图表性能好、体积小）；需要热力图、箱线图、小提琴图、雷达图、漏斗图、旭日图等高级图表时，使用 `extra.engine: matplotlib` 或 `extra.engine: plotly`；学术场景（LaTeX 论文配图风格）可用 `pgfplots`；统计场景（R 风格）可用 `ggplot2`。同一个 deck 内可以混合使用原生图表和外部引擎图表
+22. **主动生成图片**：不要等用户要求才考虑图片——你有责任主动评估每一页是否需要图片素材。封面页和结束页**必须**包含主题图片（背景图或焦点图）；章节分隔页**强烈建议**使用图片；内容页中需要视觉隐喻、场景渲染、产品展示、情感氛围的地方，**主动调用图片生成工具**。一个纯文字 + 形状的 deck 只完成了 50% 的设计工作——缺少视觉素材的幻灯片就像缺少配乐的电影
+23. **图片生成决策流程**：为每张候选图片做三步判断：(a) 这张图能提升信息传达还是只是装饰？——只生成前者；(b) 这个视觉概念能找到现成的 Unsplash 图片吗？——能则用 Unsplash，不能则用 AI 生成；(c) 生成 prompt 是否足够具体？——至少包含主体、风格、色调、构图四个要素
 
 ## 视觉层次清单
 
@@ -2206,6 +2208,143 @@ GENERATION_RULES = """
 4. 确保 YAML 语法正确，可直接解析
 5. 每页至少有 1 个语义视觉钩子（图像裁切、注释图解、时间线、数据海报、对比轴、引用海报、流程场、主题图标等）
 6. 封面和结束页必须使用 background_board
+"""
+
+
+# ============================================================
+# 图片生成工作流（主动素材获取策略）
+# ============================================================
+
+IMAGE_GENERATION_WORKFLOW = """
+## 图片生成工作流
+
+### 为什么必须主动生成图片
+
+纯文字 + 形状的幻灯片只能传达「信息」，无法传达「体验」。人类 90% 的信息通过视觉获取——一张恰当的图片比三段文字更有效。
+
+**默认立场**：每个 deck 至少需要 2-3 张图片素材。跳过图片生成需要在设计说明中明确记录理由。
+
+### 决策树：何时生成 vs 何时跳过
+
+```
+这一页需要视觉素材吗？
+├── 封面 / 结束页 → ✅ 必须（背景图或焦点图）
+├── 章节分隔页 → ✅ 强烈建议（主题图 + scrim）
+├── 内容页需要视觉隐喻 → ✅ 主动生成
+├── 内容页已有图表/表格 → ⚠️ 可选（装饰背景 vs 纯净留白）
+└── 数据密集仪表盘 → ❌ 跳过（避免视觉噪音）
+```
+
+### 双轨获取策略
+
+对每个 deck，评估两条轨道并选择最适合的：
+
+| 轨道 | 工具 | 最佳场景 | 限制 |
+|------|------|---------|------|
+| **Unsplash** | `python -m office_suite.tools.unsplash_assets` | 自然风景、办公场景、通用隐喻 | 需要 API key；风格可能不统一 |
+| **AI 生成** | MiniMax image-01 | 抽象概念、定制化场景、品牌一致性 | 需要 mmx CLI；生成有配额限制 |
+
+**优先级**：
+1. 封面背景图 → AI 生成（需要与主题高度定制化）
+2. 场景/氛围图 → Unsplash（真实照片质感好）
+3. 抽象隐喻图 → AI 生成（Unsplash 无法表达抽象概念）
+4. 图表/数据页背景 → 无需图片（用 gradient/texture 替代）
+
+### MiniMax 图片生成 Prompt 模板
+
+每张图片的 prompt 必须包含四个要素：**主体** + **风格** + **色调** + **构图**。
+
+#### 封面背景图
+
+```
+"[主题关键词]，[风格]，[色调]，16:9 宽幅构图，大面积留白区域用于叠加文字，
+无文字水印，无边框，高质量摄影/插画风格"
+```
+
+示例 — 学术主题：
+```
+"abstract academic research concept, minimalist digital illustration,
+deep navy blue and gold accent tones, 16:9 wide composition with large
+empty space on the left for text overlay, clean geometric shapes suggesting
+knowledge networks, no text, no watermark, professional quality"
+```
+
+示例 — 商业主题：
+```
+"modern business growth visualization, sleek corporate style,
+blue and white gradient palette, 16:9 composition with right-side focal
+point and left-side text space, upward flowing data streams, no text,
+no watermark, clean professional look"
+```
+
+示例 — 科技主题：
+```
+"futuristic technology abstract background, digital art style,
+dark purple and electric blue neon tones, 16:9 wide angle,
+flowing light particles and circuit patterns, large dark area on
+left for text overlay, no text, no watermark, 4K quality"
+```
+
+#### 章节分隔图
+
+```
+"[章节主题的视觉隐喻]，[与封面同风格]，[与封面同色调]，
+1:1 或 4:3 竖构图，居中主体，极简背景，无文字"
+```
+
+#### 场景/氛围图
+
+```
+"[具体场景描述]，[情绪氛围]，自然光照/柔和光影，
+与 deck 调色板协调的色调，中等景深，构图简洁"
+```
+
+### 调用方式
+
+生成图片时使用 MCP 工具：
+
+```
+工具: mcp__minimax-image__text_to_image
+参数:
+  prompt: "<上面模板中的 prompt>"
+  aspect_ratio: "16:9"   # 封面/全出血背景用 16:9，插图用 1:1 或 4:3
+  output_directory: "output/<deck-name>/assets/generated"
+```
+
+生成后在 YAML 中引用：
+```yaml
+background_board:
+  background:
+    - type: image
+      source: "assets/generated/<生成的文件名>.png"
+      position: { x: 0, y: 0, width: 254mm, height: 142.875mm }
+      extra:
+        fit: cover
+        filter:
+          type: brightness
+          value: 0.7
+```
+
+### 质量检查清单
+
+为每张生成的图片回答：
+
+- [ ] 图片是否与 deck 主题直接相关？（不是"好看但无关"的装饰图）
+- [ ] 图片色调是否与 deck 调色板协调？
+- [ ] 图片是否有大面积留白区域用于叠加文字？
+- [ ] 图片中是否避免了文字、水印、变形人脸？
+- [ ] 图片是否与 Unsplash 搜索结果有明显差异化？（不是重复已有素材）
+- [ ] 生成 prompt 是否包含主体+风格+色调+构图四个要素？
+
+### 降级策略
+
+当图片生成不可用时（mmx CLI 未安装、配额耗尽、网络不可用）：
+
+1. **首选降级**：使用 Unsplash 搜索相似主题的图片
+2. **次选降级**：使用 background_presets 中的几何/渐变预设（`gradient_spotlight`、`dark_elegant`、`chinese_ink_wash` 等）
+3. **兜底**：使用纯色 + 装饰形状的 background_board
+
+无论选择哪条路径，都必须确保封面和结束页有视觉冲击力。
 """
 
 
@@ -2263,6 +2402,7 @@ def build_prompt(
         parts.append(OUTPUT_SPEC)
 
     parts.append(GENERATION_RULES)
+    parts.append(IMAGE_GENERATION_WORKFLOW)
 
     user = USER_PROMPT_TEMPLATE.format(style=style, content=content)
     parts.append(user)
@@ -2304,6 +2444,7 @@ def build_messages(
         system_parts.append(OUTPUT_SPEC)
 
     system_parts.append(GENERATION_RULES)
+    system_parts.append(IMAGE_GENERATION_WORKFLOW)
 
     user = USER_PROMPT_TEMPLATE.format(style=style, content=content)
 

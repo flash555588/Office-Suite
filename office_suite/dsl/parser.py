@@ -241,8 +241,10 @@ def parse_data_binding(raw: dict[str, Any]) -> DataBinding:
     )
 
 
-def _resolve_src_paths(raw: Any, base_dir: Path) -> None:
+def _resolve_src_paths(raw: Any, base_dir: Path | str) -> None:
     """递归解析 slide YAML 中元素的 src/source 相对路径为绝对路径"""
+    if isinstance(base_dir, str):
+        base_dir = Path(base_dir)
     if isinstance(raw, dict):
         for key in ("src", "source"):
             val = raw.get(key)
@@ -333,6 +335,11 @@ def parse_document(raw: dict[str, Any], base_dir: Path | None = None) -> Documen
         if not isinstance(page_refs, list):
             raise TypeError("pages must be a list")
         raw_slides.extend(_load_slide_refs(page_refs, base_dir))
+
+    # 内联 slides 也需要解析 src/source 相对路径
+    if base_dir:
+        for s in raw_slides:
+            _resolve_src_paths(s, base_dir)
 
     slides = [parse_slide(s) for s in raw_slides]
 

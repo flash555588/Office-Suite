@@ -27,6 +27,48 @@ _MPL_CHART_MAP = {
 }
 
 
+def _detect_cjk_font() -> str | None:
+    """检测系统可用的 CJK 字体，返回字体族名。"""
+    import sys
+    import importlib.util
+    if not importlib.util.find_spec("matplotlib"):
+        return None
+    import matplotlib.font_manager as fm
+
+    # 候选字体（按优先级）
+    candidates = []
+    if sys.platform == "win32":
+        candidates = [
+            "Microsoft YaHei", "SimHei", "SimSun", "NSimSun",
+            "FangSong", "KaiTi", "DengXian",
+        ]
+    elif sys.platform == "darwin":
+        candidates = [
+            "PingFang SC", "Heiti SC", "STHeiti", "Songti SC",
+            "Arial Unicode MS",
+        ]
+    else:
+        candidates = [
+            "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei",
+            "WenQuanYi Zen Hei", "Droid Sans Fallback", "Source Han Sans SC",
+        ]
+
+    # 先查已安装字体
+    available = {f.name for f in fm.fontManager.ttflist}
+    for name in candidates:
+        if name in available:
+            return name
+
+    # 再尝试按文件名匹配
+    cjk_files = [f for f in fm.fontManager.ttflist
+                 if any(k in f.fname.lower() for k in
+                        ("msyh", "simhei", "simsun", "pingfang", "notocjk",
+                         "wenquanyi", "droidfallback", "sourcehans"))]
+    if cjk_files:
+        return cjk_files[0].name
+    return None
+
+
 class MatplotlibRenderer(BaseChartRenderer):
     name = "matplotlib"
     install_hint = "pip install matplotlib"
@@ -47,6 +89,13 @@ class MatplotlibRenderer(BaseChartRenderer):
         import matplotlib
         matplotlib.use("Agg")  # 非交互后端
         import matplotlib.pyplot as plt
+
+        # CJK 字体自动配置
+        _cjk_font = _detect_cjk_font()
+        if _cjk_font:
+            plt.rcParams["font.family"] = "sans-serif"
+            plt.rcParams["font.sans-serif"] = [_cjk_font] + plt.rcParams.get("font.sans-serif", [])
+            plt.rcParams["axes.unicode_minus"] = False
 
         use_seaborn = extra.get("seaborn", False)
         if use_seaborn and importlib.util.find_spec("seaborn"):
