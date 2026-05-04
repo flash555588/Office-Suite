@@ -320,12 +320,12 @@ def parse_document(raw: dict[str, Any], base_dir: Path | None = None) -> Documen
         doc_type = DocType.PRESENTATION
 
     data_bindings = {}
-    for key, val in raw.get("data", {}).items():
+    for key, val in (raw.get("data") or {}).items():
         if isinstance(val, dict):
             data_bindings[key] = parse_data_binding(val)
 
     styles = {}
-    for key, val in raw.get("styles", {}).items():
+    for key, val in (raw.get("styles") or {}).items():
         if isinstance(val, dict):
             styles[key] = parse_style(val)
 

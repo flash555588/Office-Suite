@@ -88,6 +88,12 @@ def _parse_length(value: str | float | None, parent_size: float = 0) -> tuple[fl
     if s.endswith("pt"):
         # pt → mm (1 pt = 0.3528 mm)
         return float(s[:-2]) * 0.3528, False, False
+    if s.endswith("cm"):
+        # cm → mm (1 cm = 10 mm)
+        return float(s[:-2]) * 10.0, False, False
+    if s.endswith("px"):
+        # px → mm (1 px ≈ 0.2646 mm, 96 DPI)
+        return float(s[:-2]) * 0.2646, False, False
     # 默认当作 mm
     try:
         return float(s), False, False
@@ -613,8 +619,9 @@ def _compile_component(
     group_pos = compile_position(elem.position, parent_w, parent_h) or IRPosition()
     # 调整子节点坐标：组件内部使用相对坐标，需要加上组件的绝对位置偏移
     for child in child_nodes:
-        child.position.x_mm += group_pos.x_mm
-        child.position.y_mm += group_pos.y_mm
+        if child.position is not None:
+            child.position.x_mm += group_pos.x_mm
+            child.position.y_mm += group_pos.y_mm
 
     return IRNode(
         node_type=NodeType.GROUP,
@@ -781,9 +788,11 @@ def compile_element(
                 extra=extra_copy,
             )
 
+        child_w = (ir_pos.width_mm if ir_pos and ir_pos.width_mm else parent_w)
+        child_h = (ir_pos.height_mm if ir_pos and ir_pos.height_mm else parent_h)
         ir_child = compile_element(
             child, global_styles, doc_styles, theme_name,
-            ir_pos.width_mm or parent_w, ir_pos.height_mm or parent_h, child_path,
+            child_w, child_h, child_path,
         )
         children.append(ir_child)
 

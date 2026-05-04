@@ -395,6 +395,10 @@ class PPTXRenderer(BaseRenderer):
         text = str(value).strip()
         if text.endswith("mm"):
             return float(text[:-2])
+        if text.endswith("cm"):
+            return float(text[:-2]) * 10.0
+        if text.endswith("px"):
+            return float(text[:-2]) * 0.2646
         if text.endswith("%"):
             return parent_size * float(text[:-1]) / 100.0
         if text.endswith("in"):
@@ -455,7 +459,8 @@ class PPTXRenderer(BaseRenderer):
 
         left, top, width, height = self._pos_to_emu(pos)
         if pos.is_center:
-            left = Mm((SLIDE_WIDTH_MM - pos.width_mm) / 2)
+            actual_w_mm = pos.width_mm if pos.width_mm > 0 else width / MM_TO_EMU
+            left = Mm((SLIDE_WIDTH_MM - actual_w_mm) / 2)
 
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
@@ -631,7 +636,8 @@ class PPTXRenderer(BaseRenderer):
 
         left, top, width, height = self._pos_to_emu(pos)
         if pos.is_center:
-            left = Mm((SLIDE_WIDTH_MM - pos.width_mm) / 2)
+            actual_w_mm = pos.width_mm if pos.width_mm > 0 else width / MM_TO_EMU
+            left = Mm((SLIDE_WIDTH_MM - actual_w_mm) / 2)
 
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
@@ -700,6 +706,9 @@ class PPTXRenderer(BaseRenderer):
             tf.word_wrap = not self._is_wrap_disabled(node)
             p = tf.paragraphs[0]
             p.text = node.content
+            # OOXML 要求每个 a:r 必须有 a:rPr 子元素
+            for run in p.runs:
+                _ensure_run_rpr(run)
             self._apply_text_layout(tf, p, node)
             if style:
                 fitted = self._fit_text_style_to_box(node.content, pos, style, node)
@@ -783,8 +792,8 @@ class PPTXRenderer(BaseRenderer):
         rect = etree.SubElement(custGeom, f"{a}rect")
         rect.set("l", "0")
         rect.set("t", "0")
-        rect.set("r", "0")
-        rect.set("b", "0")
+        rect.set("r", "w")
+        rect.set("b", "h")
 
         # pathLst > path
         pathLst = etree.SubElement(custGeom, f"{a}pathLst")
@@ -914,6 +923,12 @@ class PPTXRenderer(BaseRenderer):
                 filter_spec = node.extra.get("filter")
                 if filter_spec and picture:
                     self._apply_image_filter(picture, filter_spec)
+                # 应用 IRStyle 中的 fill_opacity
+                style = self._resolve_style(node, doc)
+                if style and style.fill_opacity is not None and style.fill_opacity < 1.0 and picture:
+                    self._apply_image_opacity(picture._element.find(
+                        f'.//{{{{http://schemas.openxmlformats.org/drawingml/2006/main}}}}blip'
+                    ), {"value": int(style.fill_opacity * 100)})
                 return
 
         # 降级：占位符
@@ -953,6 +968,7 @@ class PPTXRenderer(BaseRenderer):
         table = table_shape.table
 
         # 填充数据
+        style = self._resolve_style(node, doc)
         inline_data = resolved_data
         if isinstance(inline_data, list):
             for r, row_data in enumerate(inline_data[:rows]):
@@ -960,6 +976,10 @@ class PPTXRenderer(BaseRenderer):
                     for c, cell_val in enumerate(row_data[:cols]):
                         cell = table.cell(r, c)
                         cell.text = str(cell_val)
+                        # 应用 IRStyle 到单元格文本
+                        if style:
+                            for paragraph in cell.text_frame.paragraphs:
+                                self._apply_text_style(paragraph, style)
                         # 首行加粗（表头）
                         if r == 0:
                             for paragraph in cell.text_frame.paragraphs:
@@ -1114,6 +1134,11 @@ class PPTXRenderer(BaseRenderer):
             if isinstance(ref_val, dict):
                 categories = ref_val.get("categories", [])
                 series_list = ref_val.get("series", [])
+            else:
+                logger.warning(
+                    "[Chart] data_ref '%s' 返回 %s，期望 dict(categories, series)",
+                    node.data_ref, type(ref_val).__name__,
+                )
 
         # 回退到 extra 内联数据
         if not categories:
@@ -1196,21 +1221,39 @@ class PPTXRenderer(BaseRenderer):
 
         支持 linear 和 radial 类型。
         python-pptx 的 gradient API 通过 gradient_stops 操作。
+        当停止点 >2 时回退到 lxml 直接注入 gsLst。
         """
+        from lxml import etree
+
         fill.gradient()
         stops = gradient.get("stops", ["#000000", "#FFFFFF"])
         angle = gradient.get("angle", 0)
 
-        # 清除默认停止点，添加新停止点
-        # python-pptx 至少需要 2 个停止点
-        for i, color_hex in enumerate(stops):
-            position = i / max(len(stops) - 1, 1)
-            if i < len(fill.gradient_stops):
-                fill.gradient_stops[i].color.rgb = self._hex_to_rgb(color_hex)
-                fill.gradient_stops[i].position = position
+        if len(stops) <= 2:
+            # python-pptx API 路径（原生 2 停靠点）
+            for i, color_hex in enumerate(stops):
+                position = i / max(len(stops) - 1, 1)
+                if i < len(fill.gradient_stops):
+                    fill.gradient_stops[i].color.rgb = self._hex_to_rgb(color_hex)
+                    fill.gradient_stops[i].position = position
+        else:
+            # lxml 直接注入：支持任意数量停止点
+            a_ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+            grad_fill = getattr(fill._fill, '_gradFill', None)
+            if grad_fill is None:
+                return
+            gs_lst = grad_fill.find(f'{{{a_ns}}}gsLst')
+            if gs_lst is None:
+                gs_lst = etree.SubElement(grad_fill, f'{{{a_ns}}}gsLst')
             else:
-                # python-pptx 不支持动态添加停止点，取首尾
-                break
+                for old in list(gs_lst):
+                    gs_lst.remove(old)
+            for i, color_hex in enumerate(stops):
+                position = int(i / max(len(stops) - 1, 1) * 100000)
+                gs = etree.SubElement(gs_lst, f'{{{a_ns}}}gs')
+                gs.set('pos', str(position))
+                srgb = etree.SubElement(gs, f'{{{a_ns}}}srgbClr')
+                srgb.set('val', str(color_hex).lstrip('#')[:6])
 
         # 角度（linear 时有效）
         if gradient.get("type") == "linear":
@@ -1258,6 +1301,9 @@ class PPTXRenderer(BaseRenderer):
         glow_elem = etree.SubElement(effect_lst, f'{{{a_ns}}}glow')
         glow_elem.set('rad', str(int(float(glow.get("radius", 6)) * 12700)))
         color_hex = str(glow.get("color", "#2563EB")).lstrip("#")
+        # OOXML srgbClr val 必须是 6 位 hex，3 位需展开补零
+        if len(color_hex) == 3:
+            color_hex = color_hex[0]*2 + color_hex[1]*2 + color_hex[2]*2
         srgb = etree.SubElement(glow_elem, f'{{{a_ns}}}srgbClr')
         srgb.set('val', color_hex[:6] if len(color_hex) >= 6 else "2563EB")
         alpha = etree.SubElement(srgb, f'{{{a_ns}}}alpha')
@@ -1438,7 +1484,15 @@ class PPTXRenderer(BaseRenderer):
         w_mm = pos.width_mm if pos.width_mm > 0 else (SLIDE_WIDTH_MM - x_mm)
         h_mm = pos.height_mm if pos.height_mm > 0 else 7.5  # 默认 7.5mm
 
-        # 越界裁剪：确保元素不超出幻灯片边界
+        # 负坐标裁剪：元素左/上边缘超出幻灯片
+        if x_mm < 0:
+            w_mm = max(0, w_mm + x_mm)
+            x_mm = 0.0
+        if y_mm < 0:
+            h_mm = max(0, h_mm + y_mm)
+            y_mm = 0.0
+
+        # 右/下越界裁剪
         if y_mm + h_mm > SLIDE_HEIGHT_MM:
             original_h = h_mm
             h_mm = max(0, SLIDE_HEIGHT_MM - y_mm)
@@ -1456,6 +1510,10 @@ class PPTXRenderer(BaseRenderer):
                     "[CLIP] 元素宽度被裁剪: x=%.1fmm, w=%.1fmm -> %.1fmm",
                     x_mm, original_w, w_mm,
                 )
+
+        # 元素完全在幻灯片外
+        w_mm = max(0, w_mm)
+        h_mm = max(0, h_mm)
 
         left = Mm(x_mm)
         top = Mm(y_mm)
@@ -1690,7 +1748,7 @@ class PPTXRenderer(BaseRenderer):
             ln.set('w', str(int(width_pt * 12700)))  # pt → EMU
             sf = etree.SubElement(ln, f'{{{a_ns}}}solidFill')
             clr = etree.SubElement(sf, f'{{{a_ns}}}srgbClr')
-            clr.set('val', color.lstrip('#'))
+            clr.set('val', self._normalize_hex(color))
 
             if dash != "solid":
                 prst_dash = etree.SubElement(ln, f'{{{a_ns}}}prstDash')
@@ -1714,11 +1772,15 @@ class PPTXRenderer(BaseRenderer):
 
         ref_elem = etree.SubElement(effect_lst, f'{{{a_ns}}}reflection')
         opacity = reflection.get("opacity", 50)
-        ref_elem.set('st', str(int((1 - opacity / 100) * 100000)))
+        ref_elem.set('st', '0')
         ref_elem.set('endA', str(int(opacity / 100 * 100000)))
         ref_elem.set('dist', str(int(reflection.get("distance", 3) * 12700)))
         ref_elem.set('blurRad', str(int(reflection.get("blur", 2) * 12700)))
-        ref_elem.set('dir', str(int(reflection.get("direction", 5400000))))
+        # direction: 用户传入角度值，OOXML 使用 1/60000 度
+        direction_deg = reflection.get("direction", 90)
+        if direction_deg < 10000:
+            direction_deg = direction_deg * 60000
+        ref_elem.set('dir', str(int(direction_deg)))
 
     def _apply_text_bevel(self, shape, bevel: dict[str, Any]):
         """应用斜面浮雕 — <a:bevel> 在 sp3d 中
@@ -1765,6 +1827,19 @@ class PPTXRenderer(BaseRenderer):
                 spc = etree.SubElement(rPr, f'{{{a_ns}}}spc')
                 spc_pts = etree.SubElement(spc, f'{{{a_ns}}}spcPts')
                 spc_pts.set('val', str(int(letter_spacing_pt * 100)))
+            # 词距：<a:spc><a:spcPct val="110000"/></a:spc>（110000 = 110%）
+            if word_spacing_pt is not None:
+                spc = etree.SubElement(rPr, f'{{{a_ns}}}spc')
+                spc_pct = etree.SubElement(spc, f'{{{a_ns}}}spcPct')
+                spc_pct.set('val', str(int(word_spacing_pt * 1000)))
+
+    @staticmethod
+    def _normalize_hex(hex_str: str) -> str:
+        """规范化 hex 颜色为 6 位（#FFF → FFFFFF）"""
+        h = str(hex_str).lstrip("#")
+        if len(h) == 3:
+            h = h[0]*2 + h[1]*2 + h[2]*2
+        return h[:6] if len(h) >= 6 else "000000"
 
     @staticmethod
     def _hex_to_rgb(hex_str: str) -> RGBColor:
@@ -1908,9 +1983,9 @@ class PPTXRenderer(BaseRenderer):
 
         duotone = etree.SubElement(blip, f'{{{a_ns}}}duotone')
         srgb1 = etree.SubElement(duotone, f'{{{a_ns}}}srgbClr')
-        srgb1.set('val', spec.get("highlight", "#FFFFFF").lstrip('#'))
+        srgb1.set('val', self._normalize_hex(spec.get("highlight", "#FFFFFF")))
         srgb2 = etree.SubElement(duotone, f'{{{a_ns}}}srgbClr')
-        srgb2.set('val', spec.get("shadow", "#000000").lstrip('#'))
+        srgb2.set('val', self._normalize_hex(spec.get("shadow", "#000000")))
 
     def _apply_grayscale(self, blip):
         """灰度"""

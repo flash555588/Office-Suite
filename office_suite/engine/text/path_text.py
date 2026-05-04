@@ -155,30 +155,48 @@ def parse_svg_path(path_data: str, num_points: int = 50) -> list[PathPoint]:
     while i < len(parts):
         cmd = parts[i]
         if cmd in ("M", "m"):
-            current_x = float(parts[i + 1])
-            current_y = float(parts[i + 2])
+            dx = float(parts[i + 1])
+            dy = float(parts[i + 2])
+            if cmd == "m":
+                current_x += dx
+                current_y += dy
+            else:
+                current_x = dx
+                current_y = dy
             points.append(PathPoint(x=current_x, y=current_y, angle=0))
             i += 3
         elif cmd in ("L", "l"):
-            new_x = float(parts[i + 1])
-            new_y = float(parts[i + 2])
-            dx = new_x - current_x
-            dy = new_y - current_y
-            angle = math.degrees(math.atan2(dy, dx))
+            dx = float(parts[i + 1])
+            dy = float(parts[i + 2])
+            if cmd == "l":
+                new_x = current_x + dx
+                new_y = current_y + dy
+            else:
+                new_x = dx
+                new_y = dy
+            seg_dx = new_x - current_x
+            seg_dy = new_y - current_y
+            angle = math.degrees(math.atan2(seg_dy, seg_dx))
             for j in range(1, num_points + 1):
                 t = j / num_points
                 points.append(PathPoint(
-                    x=current_x + dx * t,
-                    y=current_y + dy * t,
+                    x=current_x + seg_dx * t,
+                    y=current_y + seg_dy * t,
                     angle=angle,
                 ))
             current_x, current_y = new_x, new_y
             i += 3
         elif cmd in ("C", "c"):
             # 三次贝塞尔：C x1 y1 x2 y2 x y
-            x1, y1 = float(parts[i + 1]), float(parts[i + 2])
-            x2, y2 = float(parts[i + 3]), float(parts[i + 4])
-            ex, ey = float(parts[i + 5]), float(parts[i + 6])
+            raw_x1, raw_y1 = float(parts[i + 1]), float(parts[i + 2])
+            raw_x2, raw_y2 = float(parts[i + 3]), float(parts[i + 4])
+            raw_ex, raw_ey = float(parts[i + 5]), float(parts[i + 6])
+            if cmd == "c":
+                x1, y1 = current_x + raw_x1, current_y + raw_y1
+                x2, y2 = current_x + raw_x2, current_y + raw_y2
+                ex, ey = current_x + raw_ex, current_y + raw_ey
+            else:
+                x1, y1, x2, y2, ex, ey = raw_x1, raw_y1, raw_x2, raw_y2, raw_ex, raw_ey
             for j in range(1, num_points + 1):
                 t = j / num_points
                 mt = 1 - t
@@ -192,8 +210,13 @@ def parse_svg_path(path_data: str, num_points: int = 50) -> list[PathPoint]:
             i += 7
         elif cmd in ("Q", "q"):
             # 二次贝塞尔：Q x1 y1 x y
-            x1, y1 = float(parts[i + 1]), float(parts[i + 2])
-            ex, ey = float(parts[i + 3]), float(parts[i + 4])
+            raw_x1, raw_y1 = float(parts[i + 1]), float(parts[i + 2])
+            raw_ex, raw_ey = float(parts[i + 3]), float(parts[i + 4])
+            if cmd == "q":
+                x1, y1 = current_x + raw_x1, current_y + raw_y1
+                ex, ey = current_x + raw_ex, current_y + raw_ey
+            else:
+                x1, y1, ex, ey = raw_x1, raw_y1, raw_ex, raw_ey
             for j in range(1, num_points + 1):
                 t = j / num_points
                 mt = 1 - t
@@ -231,22 +254,44 @@ def parse_svg_path_struct(path_data: str) -> list[dict]:
     while i < len(parts):
         cmd = parts[i]
         if cmd in ("M", "m"):
-            cx, cy = float(parts[i + 1]), float(parts[i + 2])
+            dx, dy = float(parts[i + 1]), float(parts[i + 2])
+            if cmd == "m":
+                cx, cy = cx + dx, cy + dy
+            else:
+                cx, cy = dx, dy
             nodes.append({"type": "move", "points": [(cx, cy)]})
             i += 3
         elif cmd in ("L", "l"):
-            cx, cy = float(parts[i + 1]), float(parts[i + 2])
+            dx, dy = float(parts[i + 1]), float(parts[i + 2])
+            if cmd == "l":
+                cx, cy = cx + dx, cy + dy
+            else:
+                cx, cy = dx, dy
             nodes.append({"type": "line", "points": [(cx, cy)]})
             i += 3
         elif cmd in ("C", "c"):
-            x1, y1 = float(parts[i + 1]), float(parts[i + 2])
-            x2, y2 = float(parts[i + 3]), float(parts[i + 4])
-            cx, cy = float(parts[i + 5]), float(parts[i + 6])
+            rx1, ry1 = float(parts[i + 1]), float(parts[i + 2])
+            rx2, ry2 = float(parts[i + 3]), float(parts[i + 4])
+            rex, rey = float(parts[i + 5]), float(parts[i + 6])
+            if cmd == "c":
+                x1, y1 = cx + rx1, cy + ry1
+                x2, y2 = cx + rx2, cy + ry2
+                cx, cy = cx + rex, cy + rey
+            else:
+                x1, y1 = rx1, ry1
+                x2, y2 = rx2, ry2
+                cx, cy = rex, rey
             nodes.append({"type": "cubic", "points": [(x1, y1), (x2, y2), (cx, cy)]})
             i += 7
         elif cmd in ("Q", "q"):
-            x1, y1 = float(parts[i + 1]), float(parts[i + 2])
-            cx, cy = float(parts[i + 3]), float(parts[i + 4])
+            rx1, ry1 = float(parts[i + 1]), float(parts[i + 2])
+            rex, rey = float(parts[i + 3]), float(parts[i + 4])
+            if cmd == "q":
+                x1, y1 = cx + rx1, cy + ry1
+                cx, cy = cx + rex, cy + rey
+            else:
+                x1, y1 = rx1, ry1
+                cx, cy = rex, rey
             nodes.append({"type": "quad", "points": [(x1, y1), (cx, cy)]})
             i += 5
         elif cmd in ("Z", "z"):

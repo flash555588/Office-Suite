@@ -81,6 +81,14 @@ def cascade_style(
             result.border = deepcopy(layer.border)
         if layer.text_effect is not None:
             result.text_effect = deepcopy(layer.text_effect)
+        if layer.text_outline is not None:
+            result.text_outline = deepcopy(layer.text_outline)
+        if layer.text_reflection is not None:
+            result.text_reflection = deepcopy(layer.text_reflection)
+        if layer.text_bevel is not None:
+            result.text_bevel = deepcopy(layer.text_bevel)
+        _merge_field(result, layer, "letter_spacing")
+        _merge_field(result, layer, "word_spacing")
         if layer.theme_ref is not None:
             result.theme_ref = layer.theme_ref
 

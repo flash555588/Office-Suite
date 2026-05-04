@@ -142,14 +142,10 @@ class LayoutResolver:
             # 相对坐标 → 绝对坐标
             if pos.is_relative:
                 pos = IRPosition(
-                    x_mm=pos.x_mm / 100 * self.container_width
-                         if pos.x_mm <= 100 else pos.x_mm,
-                    y_mm=pos.y_mm / 100 * self.container_height
-                         if pos.y_mm <= 100 else pos.y_mm,
-                    width_mm=pos.width_mm / 100 * self.container_width
-                             if pos.width_mm <= 100 else pos.width_mm,
-                    height_mm=pos.height_mm / 100 * self.container_height
-                              if pos.height_mm <= 100 else pos.height_mm,
+                    x_mm=pos.x_mm / 100 * self.container_width,
+                    y_mm=pos.y_mm / 100 * self.container_height,
+                    width_mm=pos.width_mm / 100 * self.container_width,
+                    height_mm=pos.height_mm / 100 * self.container_height,
                     is_center=pos.is_center,
                     is_auto=pos.is_auto,
                 )
@@ -343,8 +339,9 @@ class LayoutResolver:
         solver = Solver()
 
         # 添加容器变量
-        solver.add_variable("parent.width", self.container_width)
-        solver.add_variable("parent.height", self.container_height)
+        parent_w_var = solver.add_variable("parent.width", self.container_width)
+        parent_h_var = solver.add_variable("parent.height", self.container_height)
+        parent_vars = {"width": parent_w_var, "height": parent_h_var}
 
         # 为每个子元素创建变量
         child_vars: dict[int, dict[str, Variable]] = {}
@@ -393,7 +390,7 @@ class LayoutResolver:
         for i, child in enumerate(container.children):
             constraints = child.extra.get("constraints", [])
             for c_def in constraints:
-                self._add_user_constraint(solver, c_def, child_vars[i], container)
+                self._add_user_constraint(solver, c_def, child_vars[i], parent_vars)
 
         # 求解
         solver.solve()
@@ -417,13 +414,13 @@ class LayoutResolver:
         solver: Solver,
         c_def: dict[str, Any],
         child_vars: dict[str, Variable],
-        container: IRNode,
+        parent_vars: dict[str, Variable],
     ) -> None:
         """解析用户约束定义并添加到求解器"""
         c_type = c_def.get("type", "eq")
 
-        lhs = self._parse_expression(c_def.get("lhs", {}), child_vars)
-        rhs = self._parse_expression(c_def.get("rhs", {}), child_vars)
+        lhs = self._parse_expression(c_def.get("lhs", {}), child_vars, parent_vars)
+        rhs = self._parse_expression(c_def.get("rhs", {}), child_vars, parent_vars)
 
         if lhs is None or rhs is None:
             return
@@ -449,13 +446,14 @@ class LayoutResolver:
         self,
         spec: dict[str, Any],
         child_vars: dict[str, Variable],
+        parent_vars: dict[str, Variable] | None = None,
     ) -> Expression | Variable | float | None:
         """解析表达式规格
 
         格式：
           { var: "self.x" }           → 子元素变量
           { var: "self.x", coeff: 2 } → 带系数的子元素变量
-          { var: "parent.width" }     → 容器变量（通过 solver 获取）
+          { var: "parent.width" }     → 容器变量
           { value: 10 }              → 常量
         """
         if "value" in spec:
@@ -467,12 +465,13 @@ class LayoutResolver:
 
             # self.* → child_vars
             if var_name.startswith("self."):
-                key = var_name[5:]  # 去掉 "self."
+                key = var_name[5:]
                 if key in child_vars:
                     return make_expression(child_vars[key], coeff)
-            # parent.* → 从 child_vars 中无法直接获取，
-            # 但 solver 中已有 parent.width/height 变量
-            # 这里返回 None，实际中需要从 solver 获取
-            # 简化处理：通过 child_vars 间接引用
+            # parent.* → parent_vars
+            elif var_name.startswith("parent.") and parent_vars:
+                key = var_name[7:]
+                if key in parent_vars:
+                    return make_expression(parent_vars[key], coeff)
 
         return None
