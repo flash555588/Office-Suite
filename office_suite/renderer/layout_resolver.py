@@ -134,21 +134,14 @@ class LayoutResolver:
             return self._resolve_absolute(container)
 
     def _resolve_absolute(self, container: IRNode) -> dict[str, IRPosition]:
-        """绝对/相对布局 — 直接使用 IRPosition"""
+        """绝对/相对布局 — 直接使用 IRPosition
+
+        编译器已将百分比转换为 mm，is_relative 仅标记原始格式，不做二次转换。
+        """
         result = {}
         for i, child in enumerate(container.children):
             key = child.id or str(i)
             pos = child.position or IRPosition()
-            # 相对坐标 → 绝对坐标
-            if pos.is_relative:
-                pos = IRPosition(
-                    x_mm=pos.x_mm / 100 * self.container_width,
-                    y_mm=pos.y_mm / 100 * self.container_height,
-                    width_mm=pos.width_mm / 100 * self.container_width,
-                    height_mm=pos.height_mm / 100 * self.container_height,
-                    is_center=pos.is_center,
-                    is_auto=pos.is_auto,
-                )
             result[key] = pos
         return result
 
@@ -311,15 +304,12 @@ class LayoutResolver:
 
     @staticmethod
     def _has_explicit_position(child: IRNode) -> bool:
-        """判断子元素是否已有显式绝对坐标（非默认零值）
+        """判断子元素是否由 DSL 显式指定了 position
 
-        仅当 x 或 y 坐标非零时才视为"已定位"。
-        仅有 width/height 不算——这些是尺寸提示，不是位置。
+        编译器在 compile_element 中为 DSL 有 position 的元素
+        设置 extra["dsl_positioned"] = True。
         """
-        pos = child.position
-        if pos is None:
-            return False
-        return (pos.x_mm != 0.0 or pos.y_mm != 0.0)
+        return bool(child.extra.get("dsl_positioned"))
 
     def _resolve_constraint(self, container: IRNode) -> dict[str, IRPosition]:
         """约束布局 — 使用 engine/layout/constraint.py

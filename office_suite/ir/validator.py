@@ -189,9 +189,9 @@ class IRValidator:
             self.result.add(Severity.WARNING, f"x coordinate is far left ({pos.x_mm}mm)", path=path, rule="position")
         if pos.y_mm < -50:
             self.result.add(Severity.WARNING, f"y coordinate is far above ({pos.y_mm}mm)", path=path, rule="position")
-        if pos.x_mm + pos.width_mm > 300:
+        if pos.x_mm + pos.width_mm > SLIDE_WIDTH_MM:
             self.result.add(Severity.WARNING, "Element may exceed right boundary", path=path, rule="position")
-        if pos.y_mm + pos.height_mm > 250:
+        if pos.y_mm + pos.height_mm > SLIDE_HEIGHT_MM:
             self.result.add(Severity.WARNING, "Element may exceed bottom boundary", path=path, rule="position")
 
     def _check_style(self, node: IRNode, path: str):

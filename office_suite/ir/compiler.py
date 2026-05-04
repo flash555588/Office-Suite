@@ -503,6 +503,8 @@ def _compile_semantic_icon_primitives(
             fill_opacity = fill_opacity * float(opacity)
         elif opacity is not None:
             fill_opacity = float(opacity)
+        if fill_opacity is not None:
+            fill_opacity = max(0.0, min(float(fill_opacity), 1.0))
         stroke = primitive.get("stroke", True)
         actual_stroke_width = stroke_width if stroke is not False else 0
         nodes.append(_semantic_icon_shape(
@@ -685,16 +687,15 @@ def compile_element(
 
     node_type = TYPE_MAP.get(elem.type, NodeType.SHAPE)
 
-    # 样式：支持字符串引用或内联（dict 或 StyleSpec）
+    # 样式：style_ref 和 inline style 独立解析，可共存（inline 覆盖 ref）
     style_ref = None
     inline_style = None
 
     if isinstance(elem.style_ref, str):
         style_ref = elem.style_ref
-    elif isinstance(elem.style, str):
+    if isinstance(elem.style, str):
         style_ref = elem.style
     elif isinstance(elem.style, dict):
-        # 原始 YAML dict → StyleSpec → IRStyle
         parsed = parse_style(elem.style)
         if parsed:
             inline_style = compile_style(parsed)
@@ -715,6 +716,7 @@ def compile_element(
         _extract_text_effect_fields(cascaded_style)
 
     # 位置
+    has_dsl_position = elem.position is not None
     ir_pos = compile_position(elem.position, parent_w, parent_h)
 
     # 处理 size 字段覆盖 position 的宽高
@@ -734,8 +736,6 @@ def compile_element(
 
     # 图片 source 处理
     source = elem.source
-    if isinstance(source, dict):
-        source = source  # 保留 dict 形式
 
     # 子节点 — 支持 stack 布局自动排列
     children = []
@@ -819,6 +819,10 @@ def compile_element(
     if isinstance(content, str):
         content = content.replace("\\n", "\n")
 
+    extra = {k: v for k, v in elem.extra.items() if k not in ("id", "path_text")}
+    if has_dsl_position:
+        extra["dsl_positioned"] = True
+
     return IRNode(
         node_type=node_type,
         id=elem.extra.get("id", ""),
@@ -833,7 +837,7 @@ def compile_element(
         chart_type=elem.chart_type,
         animations=animations,
         path_text=path_text,
-        extra={k: v for k, v in elem.extra.items() if k not in ("id", "path_text")},
+        extra=extra,
         source_path=path,
     )
 
@@ -1071,6 +1075,7 @@ def _paginate_group(
                 split_point = last_list_break + 1
                 pages.append(current_page[:split_point])
                 current_page = current_page[split_point:] + [elem]
+                last_list_break = -1  # 重置，防止后续溢出使用过期索引
                 # 重新计算高度
                 current_height = padding_top
                 for r in current_page[:-1]:

@@ -167,7 +167,7 @@ def _score_color_narrative(slides: list[IRNode], palette: str | None) -> Dimensi
         return DimensionScore("Color Narrative", 70, WEIGHTS["color_narrative"],
                               ["No palette specified, cannot verify color consistency"])
 
-    from .tokens import get_color_zones
+    from .tokens import get_color_zones, PALETTE
 
     zones = get_color_zones(palette)
     allowed_colors = set()
@@ -177,12 +177,16 @@ def _score_color_narrative(slides: list[IRNode], palette: str | None) -> Dimensi
     # Zone 2 图表色
     for c in zones["chart"]:
         allowed_colors.add(c.upper())
-    # 背景/文字/边框
-    pal = zones.get("semantic", {})
+    # 主调色板中的 bg/text/border 等基础色（3 区模型不含这些）
+    pal = PALETTE.get(palette, {})
+    for v in pal.values():
+        if isinstance(v, str) and v.startswith("#"):
+            allowed_colors.add(v.upper())
 
     # 收集所有幻灯片中使用的颜色
     found_colors: set[str] = set()
-    _collect_colors_recursive(slides[0] if slides else IRNode(NodeType.DOCUMENT), found_colors)
+    for slide in slides:
+        _collect_colors_recursive(slide, found_colors)
 
     if not found_colors:
         return DimensionScore("Color Narrative", 80, WEIGHTS["color_narrative"],

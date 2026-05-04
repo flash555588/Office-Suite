@@ -289,12 +289,20 @@ class PPTXRenderer(BaseRenderer):
 
         Layer order: background -> illustration -> scrim -> ornament.
         safe_area/content_zone is metadata for layout decisions and is not rendered.
+
+        DSL 也支持 layers 键（扁平列表），优先级低于结构化键。
         """
         if not isinstance(board, dict):
             return
-        for layer_key in ("background", "illustration", "scrim", "ornament"):
-            for layer in self._layer_items(board.get(layer_key)):
-                self._render_background_layer(slide, layer, layer_key)
+        has_structured = any(board.get(k) for k in ("background", "illustration", "scrim", "ornament"))
+        if has_structured:
+            for layer_key in ("background", "illustration", "scrim", "ornament"):
+                for layer in self._layer_items(board.get(layer_key)):
+                    self._render_background_layer(slide, layer, layer_key)
+        else:
+            # DSL 扁平 layers 模式
+            for layer in self._layer_items(board.get("layers")):
+                self._render_background_layer(slide, layer, "background")
 
     def _layer_items(self, value) -> list[dict[str, Any]]:
         if not value:
@@ -332,7 +340,9 @@ class PPTXRenderer(BaseRenderer):
                 logger.warning("background_board %s layer has no source path", role)
             return
 
-        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        shape_name = layer.get("shape", "rect")
+        shape_type = self._get_shape_type(shape_name)
+        shape = slide.shapes.add_shape(shape_type, left, top, width, height)
         shape.line.fill.background()
 
         gradient = layer.get("gradient")
@@ -358,6 +368,15 @@ class PPTXRenderer(BaseRenderer):
         opacity = layer.get("opacity", style_fill.get("opacity"))
         if opacity is not None:
             self._apply_fill_alpha(shape, float(opacity))
+
+        # 边框
+        border = style_fill.get("border") if isinstance(style_fill.get("border"), dict) else None
+        if not border:
+            border = layer.get("border") if isinstance(layer.get("border"), dict) else None
+        if border:
+            from pptx.util import Pt as _Pt
+            shape.line.color.rgb = self._hex_to_rgb(border.get("color", "#000000"))
+            shape.line.width = _Pt(border.get("width", 1))
 
     def _normalize_gradient_stops(self, stops) -> list[str]:
         if not isinstance(stops, list) or not stops:
@@ -425,7 +444,16 @@ class PPTXRenderer(BaseRenderer):
         elif node.node_type == NodeType.CHART:
             self._render_chart(slide, node, doc)
         elif node.node_type == NodeType.GROUP:
+            # GROUP 子元素位置相对于 group 原点，需要偏移到绝对坐标
+            from dataclasses import replace
+            group_pos = node.position
             for child in node.children:
+                if child.position and group_pos:
+                    child = replace(child, position=replace(
+                        child.position,
+                        x_mm=child.position.x_mm + group_pos.x_mm,
+                        y_mm=child.position.y_mm + group_pos.y_mm,
+                    ))
                 self._render_element(slide, child, doc)
         else:
             self._render_placeholder(slide, node)
@@ -487,9 +515,7 @@ class PPTXRenderer(BaseRenderer):
                     if rp.get("underline"):
                         run.font.underline = True
                     if rp.get("color"):
-                        from pptx.util import Pt
-                        from pptx.dml.color import RGBColor
-                        run.font.color.rgb = RGBColor.from_string(rp["color"].lstrip("#"))
+                        run.font.color.rgb = self._hex_to_rgb(rp["color"])
                     if rp.get("font_size"):
                         from pptx.util import Pt
                         run.font.size = Pt(rp["font_size"])
@@ -508,8 +534,7 @@ class PPTXRenderer(BaseRenderer):
                         if rp.get("italic"):
                             run.font.italic = True
                         if rp.get("color"):
-                            from pptx.dml.color import RGBColor
-                            run.font.color.rgb = RGBColor.from_string(rp["color"].lstrip("#"))
+                            run.font.color.rgb = self._hex_to_rgb(rp["color"])
                         if rp.get("font_size"):
                             from pptx.util import Pt
                             run.font.size = Pt(rp["font_size"])
@@ -1843,9 +1868,11 @@ class PPTXRenderer(BaseRenderer):
 
     @staticmethod
     def _hex_to_rgb(hex_str: str) -> RGBColor:
-        """将 HEX 颜色转为 RGBColor"""
+        """将 HEX 颜色转为 RGBColor，支持 #RGB / #RRGGBB / #RRGGBBAA"""
         hex_str = hex_str.lstrip("#")
-        if len(hex_str) == 8:
+        if len(hex_str) == 3:
+            hex_str = hex_str[0]*2 + hex_str[1]*2 + hex_str[2]*2
+        elif len(hex_str) == 8:
             hex_str = hex_str[:6]
         if len(hex_str) != 6:
             return RGBColor(0, 0, 0)
@@ -1862,7 +1889,9 @@ class PPTXRenderer(BaseRenderer):
         """形状名称 → MSO_SHAPE 枚举"""
         mapping = {
             "rectangle": MSO_SHAPE.RECTANGLE,
+            "rect": MSO_SHAPE.RECTANGLE,
             "rounded_rectangle": MSO_SHAPE.ROUNDED_RECTANGLE,
+            "round_rect": MSO_SHAPE.ROUNDED_RECTANGLE,
             "circle": MSO_SHAPE.OVAL,
             "ellipse": MSO_SHAPE.OVAL,
             "oval": MSO_SHAPE.OVAL,

@@ -408,7 +408,7 @@ from ..constants import SLIDE_WIDTH_MM, SLIDE_HEIGHT_MM  # noqa: E402
 
 COLOR_ZONES: dict[str, dict[str, Any]] = {
     "corporate": {
-        "semantic": {"primary": "#1E40AF", "accent": "#3B82F6", "highlight": "#F59E0B"},
+        "semantic": {"primary": "#1E40AF", "accent": "#60A5FA", "highlight": "#F59E0B"},
         "chart": ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899",
                    "#06B6D4", "#84CC16", "#F97316", "#6366F1"],
         "decorative_range": ["#DBEAFE", "#1E3A5F"],
@@ -420,13 +420,13 @@ COLOR_ZONES: dict[str, dict[str, Any]] = {
         "decorative_range": ["#F1F5F9", "#1E293B"],
     },
     "creative": {
-        "semantic": {"primary": "#E11D48", "accent": "#F43F5E", "highlight": "#FBBF24"},
+        "semantic": {"primary": "#E11D48", "accent": "#FB7185", "highlight": "#FBBF24"},
         "chart": ["#F43F5E", "#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EC4899",
                    "#6366F1", "#14B8A6", "#F97316", "#A855F7"],
         "decorative_range": ["#3F3F46", "#18181B"],
     },
     "minimal": {
-        "semantic": {"primary": "#2563EB", "accent": "#3B82F6", "highlight": "#F59E0B"},
+        "semantic": {"primary": "#2563EB", "accent": "#60A5FA", "highlight": "#F59E0B"},
         "chart": ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899",
                    "#06B6D4", "#84CC16", "#F97316", "#6366F1"],
         "decorative_range": ["#DBEAFE", "#1E3A5F"],
@@ -444,7 +444,7 @@ COLOR_ZONES: dict[str, dict[str, Any]] = {
         "decorative_range": ["#F0FDF4", "#022C22"],
     },
     "flat": {
-        "semantic": {"primary": "#0EA5E9", "accent": "#38BDF8", "highlight": "#F59E0B"},
+        "semantic": {"primary": "#0EA5E9", "accent": "#7DD3FC", "highlight": "#F59E0B"},
         "chart": ["#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899",
                    "#14B8A6", "#84CC16", "#F97316", "#6366F1"],
         "decorative_range": ["#E0F2FE", "#0C4A6E"],
@@ -456,7 +456,7 @@ COLOR_ZONES: dict[str, dict[str, Any]] = {
         "decorative_range": ["#991B1B", "#7F1D1D"],
     },
     "warm": {
-        "semantic": {"primary": "#D97706", "accent": "#F59E0B", "highlight": "#FBBF24"},
+        "semantic": {"primary": "#D97706", "accent": "#FBBF24", "highlight": "#FBBF24"},
         "chart": ["#D97706", "#10B981", "#DC2626", "#8B5CF6", "#06B6D4", "#EC4899",
                    "#F97316", "#84CC16", "#6366F1", "#14B8A6"],
         "decorative_range": ["#FEF3C7", "#78350F"],
@@ -468,7 +468,7 @@ COLOR_ZONES: dict[str, dict[str, Any]] = {
         "decorative_range": ["#EDE7E0", "#4A4A4A"],
     },
     "minimal_bw": {
-        "semantic": {"primary": "#000000", "accent": "#333333", "highlight": "#666666"},
+        "semantic": {"primary": "#000000", "accent": "#666666", "highlight": "#999999"},
         "chart": ["#000000", "#333333", "#666666", "#999999", "#444444", "#777777",
                    "#222223", "#555556", "#888888", "#AAAAAA"],
         "decorative_range": ["#F5F5F5", "#333333"],
@@ -659,8 +659,6 @@ SPACING = SpacingSpec()
 # ============================================================
 # 布局网格 (mm)
 # ============================================================
-
-from ..constants import SLIDE_WIDTH_MM, SLIDE_HEIGHT_MM
 
 
 @dataclass(frozen=True)

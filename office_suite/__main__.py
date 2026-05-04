@@ -143,8 +143,6 @@ def chart_engines_command(args: argparse.Namespace) -> int:
     print(f"  {n_available}/{len(engines)} engines available")
     return 0
 
-    return 0
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
