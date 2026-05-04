@@ -2,12 +2,15 @@
 
 Provides the documented command:
     python -m office_suite build input.yml -o output.pptx
+    python -m office_suite build input.yml -o output.pptx --dump-ir
+    python -m office_suite build input.yml -o output.pptx --dump-ir ir.json --strict
     python -m office_suite --help
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 SUPPORTED_FORMATS = {"pptx", "docx", "xlsx", "pdf", "html"}
@@ -30,14 +33,56 @@ def _infer_format(output_path: Path, explicit_format: str | None) -> str:
 
 def build_command(args: argparse.Namespace) -> int:
     # 延迟导入：仅在实际渲染时才加载渲染器依赖
-    from .tools.convert import convert_dsl_file
+    from .tools.convert import convert_ir
+    from .dsl.parser import parse_yaml
+    from .ir.compiler import compile_document
+    from .ir.types import dump_ir_json
+    from .ir.validator import gate_validate_ir, GateValidationError
 
     input_path = Path(args.input)
     output_path = Path(args.output)
     target_format = _infer_format(output_path, args.format)
 
+    # 1. 解析 + 编译
+    doc = parse_yaml(input_path)
+    ir = compile_document(doc)
+
+    # 2. Gate 校验
+    try:
+        gate_validate_ir(ir, strict=getattr(args, "strict", False))
+    except GateValidationError as exc:
+        print(f"IR Gate validation failed:\n{exc.result}", file=sys.stderr)
+        return 1
+
+    # 3. --quality 评分
+    if getattr(args, "quality", False):
+        from .design.quality_scorer import score_document
+        palette = ir.theme or ir.style_preset or "corporate"
+        qresult = score_document(ir, palette=palette)
+        print(f"\n{qresult.report()}\n")
+
+    # 4. --dump-ir 导出
+    dump_arg = getattr(args, "dump_ir", None)
+    if dump_arg is not None:
+        if dump_arg is True:
+            # --dump-ir 无参数 → 自动路径
+            dump_path = output_path.with_suffix(".ir.json")
+            dump_path.parent.mkdir(parents=True, exist_ok=True)
+            dump_path.write_text(dump_ir_json(ir), encoding="utf-8")
+            print(f"IR dumped: {dump_path}")
+        elif dump_arg == "-":
+            # --dump-ir - → stdout
+            print(dump_ir_json(ir))
+        else:
+            # --dump-ir <file> → 指定路径
+            dump_path = Path(dump_arg)
+            dump_path.parent.mkdir(parents=True, exist_ok=True)
+            dump_path.write_text(dump_ir_json(ir), encoding="utf-8")
+            print(f"IR dumped: {dump_path}")
+
+    # 5. 渲染
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    rendered_path = convert_dsl_file(input_path, output_path, target_format)
+    rendered_path = convert_ir(ir, output_path, target_format)
     print(f"Rendered {target_format}: {rendered_path}")
     return 0
 
@@ -121,6 +166,29 @@ def main(argv: list[str] | None = None) -> int:
         "--format",
         choices=sorted(SUPPORTED_FORMATS),
         help="Output format. Defaults to the output file extension.",
+    )
+    build_parser.add_argument(
+        "--dump-ir",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Export the compiled IR tree as JSON before rendering. "
+            "Without FILE, writes to <output>.ir.json. Use '-' for stdout."
+        ),
+    )
+    build_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="Strict Gate validation: treat warnings as errors (blocks rendering)",
+    )
+    build_parser.add_argument(
+        "--quality",
+        action="store_true",
+        default=False,
+        help="Run 5-dimensional quality scoring after Gate validation",
     )
     build_parser.set_defaults(func=build_command)
 

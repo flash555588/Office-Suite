@@ -55,6 +55,66 @@ SEMANTIC_LAYOUTS: dict[str, dict[str, Any]] = {
     "cover_center":  {"mode": "absolute"},
     "quote":         {"mode": "absolute"},
     "stats_row":     {"mode": "grid", "grid": {"columns": 3, "gutter": 4.0, "row_height": _grid_card_height(1), "margin": _DEFAULT_MARGIN}},
+
+    # ── Bento Grid 预设 (8 种) ──────────────────────────────
+    # 使用 12 列 grid，子元素通过 extra.grid 指定 column/span/row
+    # 不等高不等宽的混合 cell 组合
+
+    # hero_sidebar: 左 8 列主区 + 右 4 列侧栏（上下两行）
+    # 子元素: [主区(8×2), 侧栏上(4×1), 侧栏下(4×1)]
+    "hero_sidebar": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # feature_showcase: 顶部标题行(全宽) + 3 个特性卡片(4列×1行)
+    # 子元素: [标题(12×1), 卡片1(4×1), 卡片2(4×1), 卡片3(4×1)]
+    "feature_showcase": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # data_dashboard: KPI 行(3×4列) + 图表(8列×1行) + 注释(4列×1行)
+    # 子元素: [KPI1(4×1), KPI2(4×1), KPI3(4×1), 图表(8×1), 注释(4×1)]
+    "data_dashboard": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # timeline_vertical: 纵向时间轴，2 列布局（标签列 + 内容列）
+    # 子元素: 按时间顺序排列，每行占 1 行
+    "timeline_vertical": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 3.0, "row_height": _grid_card_height(4),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # comparison_table: 左右两列对比（各 6 列），带标题行
+    # 子元素: [标题A(6×1), 标题B(6×1), 内容A(6×N), 内容B(6×N)]
+    "comparison_table": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # quote_highlight: 大引用块（居中 8 列）+ 底部署名（8 列）
+    # 子元素: [引用(8×1, col=3), 署名(8×1, col=3)]
+    "quote_highlight": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # kpi_grid: 4 个 KPI 卡片（各 3 列×1 行），可追加 2 行
+    # 子元素: [KPI1(3×1), KPI2(3×1), KPI3(3×1), KPI4(3×1)]
+    "kpi_grid": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(1),
+        "margin": _DEFAULT_MARGIN,
+    }},
+
+    # magazine_layout: 大图（左 8 列×2 行）+ 2 个叠放卡片（右 4 列×各 1 行）
+    # 子元素: [大图(8×2), 卡片上(4×1), 卡片下(4×1)]
+    "magazine_layout": {"mode": "grid", "grid": {
+        "columns": 12, "gutter": 4.0, "row_height": _grid_card_height(2),
+        "margin": _DEFAULT_MARGIN,
+    }},
 }
 
 

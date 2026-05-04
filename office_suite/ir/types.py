@@ -12,7 +12,8 @@
 - IRNode.source_path 保留 DSL 原始路径，便于调试和错误定位
 """
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass, field, fields, asdict
 from enum import Enum
 from typing import Any, Optional
 
@@ -308,6 +309,44 @@ class IRDocument:
     children: list[IRNode] = field(default_factory=list)
     # 原始 DSL
     raw_dsl: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """序列化为可 JSON 编码的字典（含 raw_dsl 保留）"""
+        return _ir_to_dict(self)
+
+
+def _ir_to_dict(obj: Any) -> Any:
+    """递归将 IR 树序列化为 dict，处理 Enum / dataclass / 嵌套"""
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if isinstance(obj, (list, tuple)):
+        return [_ir_to_dict(item) for item in obj]
+    if isinstance(obj, dict):
+        return {k: _ir_to_dict(v) for k, v in obj.items()}
+    if hasattr(obj, "__dataclass_fields__"):
+        result = {}
+        for f in fields(obj):
+            val = getattr(obj, f.name)
+            result[f.name] = _ir_to_dict(val)
+        return result
+    return str(obj)
+
+
+def dump_ir_json(doc: IRDocument, pretty: bool = True) -> str:
+    """将 IRDocument 序列化为 JSON 字符串
+
+    Args:
+        doc: IR 文档
+        pretty: 是否美化输出（缩进 2 格）
+
+    Returns:
+        JSON 字符串
+    """
+    data = doc.to_dict()
+    indent = 2 if pretty else None
+    return json.dumps(data, indent=indent, ensure_ascii=False, default=str)
 
 
 def validate_ir(doc: IRDocument) -> list[str]:

@@ -33,3 +33,12 @@ tests/output/*
 demo_output/
 output/
 参考/
+
+# Coverage & temp
+.coverage
+.coverage.*
+temp/
+
+# Temporary analysis reports
+PROJECT_REVIEW_REPORT_*.md
+STYLE_FREEDOM_ANALYSIS.md

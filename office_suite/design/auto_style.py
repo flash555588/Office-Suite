@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .tokens import get_palette
+from .tokens import get_palette, get_color_zones, get_chart_palette
 
 
 def get_accent(palette: str) -> str:
@@ -249,3 +249,52 @@ def get_gradient_accent(palette: str, angle: int = 0) -> dict[str, Any]:
             ],
         },
     }
+
+
+# ============================================================
+# 3 区色彩模型查询 (Color Zone Queries)
+# ============================================================
+
+def get_zone_semantic(palette: str) -> dict[str, str]:
+    """获取 Zone 1 语义色（primary/accent/highlight）
+
+    语义色固定不可变，用于标题、关键数据、CTA 按钮。
+
+    Args:
+        palette: 配色方案名
+    Returns:
+        {"primary": hex, "accent": hex, "highlight": hex}
+    """
+    zones = get_color_zones(palette)
+    return zones["semantic"]
+
+
+def get_zone_chart(palette: str, index: int = 0) -> str:
+    """获取 Zone 2 图表色板中的第 N 个颜色
+
+    图表色板固定不可变，确保数据可视化的一致性和对比度。
+
+    Args:
+        palette: 配色方案名
+        index: 色板索引（自动取模，支持超出范围）
+    Returns:
+        HEX 颜色值
+    """
+    chart = get_chart_palette(palette)
+    return chart[index % len(chart)]
+
+
+def get_zone_decorative(palette: str) -> tuple[str, str]:
+    """获取 Zone 3 装饰色允许范围（lightest, darkest）
+
+    装饰色用于背景渐变、纹理、装饰元素。
+    LLM 在 [lightest, darkest] 范围内自由发挥。
+
+    Args:
+        palette: 配色方案名
+    Returns:
+        (lightest_hex, darkest_hex) 元组
+    """
+    zones = get_color_zones(palette)
+    r = zones["decorative_range"]
+    return (r[0], r[1])

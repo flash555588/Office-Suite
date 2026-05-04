@@ -89,7 +89,11 @@ from .auto_style import (
     get_card_style,
     get_glass_card_style,
     get_gradient_accent,
+    get_zone_semantic,
+    get_zone_chart,
+    get_zone_decorative,
 )
+from .quality_scorer import score_document, QualityResult
 from .freeform_shapes import (
     blob_shape,
     wave_edge,
@@ -177,6 +181,13 @@ __all__ = [
     "get_card_style",
     "get_glass_card_style",
     "get_gradient_accent",
+    # 3 区色彩模型
+    "get_zone_semantic",
+    "get_zone_chart",
+    "get_zone_decorative",
+    # 5 维质量评分
+    "score_document",
+    "QualityResult",
     # 自由贝塞尔形状预设
     "blob_shape",
     "wave_edge",
