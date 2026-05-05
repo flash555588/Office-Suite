@@ -397,6 +397,30 @@ Every image prompt must follow this structure: **主体 + 场景 + 风格 + 色�
 | 纯数据/报表 | 跳过 | 跳过（记录原因） | 运行工具 | 数据页用图表/表格，不用图片 |
 | 用户要求"最新数据" | 必须搜索 | 按需 | 运行工具 | 搜索结果直接进幻灯片内容 |
 
+**备选工具矩阵（MiniMax 不可用时）：**
+
+| 功能 | 首选 | 备选 1 | 备选 2 | 降级策略 |
+|------|------|--------|--------|----------|
+| AI 生图 | `mmx image generate` | `mcp__MiniMax__text_to_image`（MCP） | `generate-image` skill（多引擎） | Unsplash 真实照片 → `background_presets` 渐变/纹理 → 纯色 + `semantic_icon` 装饰 |
+| 网页搜索 | `mcp__MiniMax__web_search` | `WebSearch` 内置工具 | `web-access` skill（浏览器自动化） | 直接使用已有知识（标注"未经实时验证"） |
+| 图片理解 | `mcp__MiniMax__understand_image` | `WebFetch`（URL 图片分析） | Claude 原生视觉（本地文件直接读取） | 人工描述参考图特征 |
+| 视频生成 | `mmx video generate` | 无直接 CLI 备选 | — | 跳过视频，用静态图片 + 动画过渡替代 |
+| 语音合成 | `mmx speech synthesize` | 无直接 CLI 备选 | — | 跳过语音，PPT 本身不依赖音频 |
+| 音乐生成 | `mmx music generate` | 无直接 CLI 备选 | — | 跳过背景音乐，PPT 演讲不需要配乐 |
+
+**降级触发条件**（按优先级尝试，直到成功）：
+1. `mmx` CLI 未安装或 `mmx auth` 失败 → 切换到 MCP 工具
+2. MCP 工具 API key 未配置或配额耗尽 → 切换到 skill
+3. Skill 也不可用 → 执行降级策略（Unsplash / 纯色背景 / 人工输入）
+
+**每张 `design.md` 必须记录**：
+```markdown
+## Asset Pipeline
+- Image generation: mmx (primary) → mcp__MiniMax__text_to_image (fallback)
+- Web search: mcp__MiniMax__web_search (primary) → WebSearch (fallback)
+- Fallback reason: <if降级，记录原因>
+```
+
 ### Step 5: Select Icon Assets, Then Fallback to semantic_icon
 
 **This step is mandatory for every deck.** Do not write any page YAML before it is complete.
