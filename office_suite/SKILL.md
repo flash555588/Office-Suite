@@ -67,11 +67,37 @@ Before `outline.md`, create an information inventory:
 - Evidence target: for research/enrichment decks, aim for at least 3 credible sources and 5-10 source-backed facts before drafting the slide outline.
 - Currentness check: if any claim may have changed recently, verify it before using it.
 
-Browsing/search is mandatory when:
+**Web search is mandatory when:**
 - content mode is `research`
 - the user asks for "latest", "current", "today", trends, market data, policies, standards, product specs, prices, schedules, or recommendations
 - the topic is niche, technical, legal, medical, financial, or otherwise high-stakes
 - the deck includes statistics, rankings, named case studies, or claims about modern organizations/people
+
+**Search tool:** Use `mcp__MiniMax__web_search` for all web searches. Do not fabricate URLs or data.
+
+**Search strategy by content type:**
+
+| Content type | Query pattern | Example |
+|-------------|--------------|---------|
+| 行业数据 | `"<行业> <指标> <年份>"` | `"中国新能源汽车销量 2025"` |
+| 技术原理 | `"<技术> 原理 工作机制"` | `"锂电池 原理 工作机制"` |
+| 对比分析 | `"<A> vs <B> 优缺点"` | `"React vs Vue 优缺点 2025"` |
+| 案例事实 | `"<公司/人物> <事件> <年份>"` | `"OpenAI GPT-5 发布时间"` |
+| 政策标准 | `"<领域> <国家/机构> 标准 规范"` | `"医疗器械 FDA 认证流程"` |
+| 趋势预测 | `"<领域> 趋势 预测 <年份>"` | `"AI 教育 趋势 预测 2026"` |
+
+**Search execution rules:**
+1. Run 2-4 searches per deck, each targeting a different angle (数据/事实/案例/趋势).
+2. Extract concrete numbers, dates, names, and URLs from results.
+3. Cross-verify claims that appear in only one source.
+4. Record all source URLs in `outline.md` under "Information Inventory".
+5. If a search returns no useful results, rephrase the query with different keywords before giving up.
+
+**When NOT to search:**
+- User provided complete source documents (summary mode).
+- User provided a structured outline (outline mode).
+- Topic is purely fictional/creative (fiction, storytelling).
+- All content is from user's own data/experience.
 
 If network access is unavailable, record that limitation in `outline.md`, proceed with conservative claims only, and avoid unsupported statistics.
 
@@ -324,7 +350,35 @@ mmx image generate \
   --quiet
 ```
 
-Rules:
+**Prompt construction rules:**
+
+Every image prompt must follow this structure: **主体 + 场景 + 风格 + 色调 + 构图**
+
+| 幻灯片角色 | Prompt 模板 | 示例 |
+|-----------|-----------|------|
+| 封面背景 | `<主题> <场景>, <风格> style, <色调> palette, wide composition, clean negative space` | `"chemistry laboratory glassware on dark table, cinematic photography style, deep blue and teal palette, wide 16:9 composition"` |
+| 章节引导 | `<章节概念> metaphor, <风格>, <色调>, centered composition, minimal` | `"data flow metaphor with glowing nodes, flat illustration style, blue and white palette, centered symmetrical"` |
+| 数据背景 | `<领域> abstract pattern, <风格>, <色调>, subtle texture, low contrast` | `"molecular structure abstract pattern, geometric art style, navy and cyan palette, subtle low-contrast texture"` |
+| 结尾画面 | `<主题> future vision, <风格>, <色调>, inspirational, wide angle` | `"sustainable energy future landscape, digital art style, warm golden and green palette, wide angle inspirational"` |
+
+**Prompt 质量检查：**
+- 必须包含 4 个以上描述维度（主体/场景/风格/色调/构图）
+- 禁止在 prompt 中要求生成文字/字母/数字（AI 图片中的文字不可读）
+- 色调必须与 `design.md` 中选定的调色板一致
+- 风格词必须具体（"cinematic photography" > "beautiful"；"flat illustration" > "nice"）
+
+**风格词速查：**
+| 风格 | 关键词 |
+|------|-------|
+| 商务摄影 | `corporate photography style, professional lighting, clean background` |
+| 电影感 | `cinematic photography style, dramatic lighting, depth of field` |
+| 扁平插画 | `flat illustration style, vector art, clean lines, solid colors` |
+| 3D 渲染 | `3D render style, octane render, soft shadows, glossy materials` |
+| 科技感 | `futuristic tech style, holographic, neon glow, dark background` |
+| 水彩手绘 | `watercolor illustration style, soft brushstrokes, paper texture` |
+| 极简主义 | `minimalist style, geometric shapes, lots of white space, single accent color` |
+
+**Rules:**
 - **Proactive by default**: Every deck must have a concrete reason to skip image generation, not a reason to use it. The burden of justification is on skipping, not on generating.
 - Generated images must be purposeful assets that reinforce the deck's message, not generic filler.
 - Each image prompt must include subject + style + color palette + composition to ensure quality and palette consistency.
@@ -332,6 +386,16 @@ Rules:
 - Record generated image paths and prompts in `design.md` or an asset manifest.
 - If `mmx` is unavailable, unauthenticated, quota-limited, or blocked, record `prompt-brief-only` in `design.md` and continue with Unsplash/native visuals.
 - Missing MiniMax plan, generated asset paths for used images, or documented skip/fallback reason blocks the quality gate.
+
+**Tool 联动决策矩阵：**
+
+| 场景 | Web search | MiniMax 图片 | Unsplash | 说明 |
+|------|-----------|-------------|----------|------|
+| 用户给主题，无资料 | 必须搜索 | 必须生成封面+1 | 运行工具 | research 模式全流程 |
+| 用户给完整文档 | 跳过 | 生成封面 | 运行工具 | summary 模式，图片补充视觉 |
+| 用户给大纲 | 按需补充 | 生成封面 | 运行工具 | outline 模式，搜索填补空白 |
+| 纯数据/报表 | 跳过 | 跳过（记录原因） | 运行工具 | 数据页用图表/表格，不用图片 |
+| 用户要求"最新数据" | 必须搜索 | 按需 | 运行工具 | 搜索结果直接进幻灯片内容 |
 
 ### Step 5: Select Icon Assets, Then Fallback to semantic_icon
 
@@ -464,6 +528,185 @@ Page file rules:
   - if the card is intentionally top-aligned, record that in `design.md` or the slide's visual notes
 - Use `align: center`, `vertical_align: middle`, `margin: 0` for centered content inside cards.
 - Never hand-tune coordinates to simulate centering.
+
+#### Slide Transitions and Element Animations (Optional)
+
+Both are optional. Use sparingly — a silent slide is better than a noisy one.
+
+**Slide transition** — the visual effect when moving between slides. Set once per slide at the top level:
+
+```yaml
+slides:
+  - layout: blank
+    transition: { type: fade, speed: med }
+```
+
+Supported types: `fade`, `push`, `wipe`, `dissolve`, `split`, `blinds`, `cover`, `uncover`, `cut`, `diamond`, `fly`, `wheel`, `circle`. Speed: `slow`, `med`, `fast`.
+
+**Element animation** — entrance/exit/emphasis effects on individual elements. Set per element:
+
+```yaml
+- type: text
+  content: "标题"
+  animation: { type: entry, effect: fade, duration: 0.6, delay: 0.2, trigger: after_previous }
+```
+
+Fields:
+- `type`: `entry` / `exit` / `emphasis` / `motion_path` (default: `entry`, auto-inferred from effect name)
+- `effect`: see effect tables below
+- `duration`: seconds (default: 0.5)
+- `delay`: seconds before this animation starts (default: 0)
+- `trigger`: `on_click` / `with_previous` / `after_previous` (default: `on_click`)
+- `easing`: `linear` / `ease_in` / `ease_out` / `ease_in_out` (default: `ease_out`)
+
+**Entry effects (40+):**
+
+| Group | Effects |
+|-------|---------|
+| Fade | `fade` |
+| Wipe | `wipe_up`, `wipe_down`, `wipe_left`, `wipe_right` |
+| Slide | `slide_up`, `slide_down`, `slide_left`, `slide_right` |
+| Fly | `fly_in` |
+| Zoom | `zoom_in`, `zoom_out_in` |
+| Blinds | `blinds_h`, `blinds_v` |
+| Checkerboard | `checkerboard`, `checkerboard_v` |
+| Box | `box_in`, `box_out` |
+| Shape | `diamond`, `plus`, `circle`, `shape_diamond`, `shape_plus` |
+| Wheel | `wheel`, `wheel_1`, `wheel_2`, `wheel_3`, `wheel_4`, `wheel_8` |
+| Random bars | `random_bars_h`, `random_bars_v` |
+| Strips | `strips_upleft`, `strips_upright`, `strips_downleft`, `strips_downright` |
+
+**Exit effects (mirror entry):** `fade_out`, `wipe_out_up/down/left/right`, `slide_out_up/down/left/right`, `fly_out`, `zoom_out`, `zoom_out_exit`, `blinds_out_h/v`, `checkerboard_out`, `box_out_exit`, `diamond_out`, `circle_out`, `random_bars_out_h/v`, `strips_out_*`
+
+**Emphasis effects:**
+
+| Group | Effects |
+|-------|---------|
+| Scale | `pulse` (110%), `grow` (150%), `shrink` (75%), `grow_s` (120%), `shrink_s` (90%) |
+| Rotate | `spin_cw` (360deg), `spin_ccw` (-360deg), `spin_half_cw` (180deg), `spin_half_ccw` (-180deg) |
+| Color | `color_pulse` (blue), `color_grow` (green), `color_warn` (yellow), `color_flash` (red) |
+
+**Motion path effects:**
+
+| Group | Effects |
+|-------|---------|
+| Linear | `path_right`, `path_left`, `path_up`, `path_down`, `path_up_right`, `path_down_right`, `path_up_left`, `path_down_left` |
+| Arc | `path_arc_right`, `path_arc_left`, `path_loop` |
+| Preset | `path_diamond`, `path_triangle`, `path_hexagon`, `path_figure_8` |
+
+**Animation Decision Framework — AI 自主判断规则**
+
+生成 PPT 时，AI 必须按以下三步决策，自主决定每个幻灯片的动画方案。不需要用户手动指定。
+
+**第一步：判断幻灯片是否需要动画**
+
+| 幻灯片角色 | 是否加动画 | 原因 |
+|-----------|-----------|------|
+| cover（封面） | 是 | 第一印象，标题入场建立节奏 |
+| section_opener（章节引导） | 是 | 章节转折需要视觉信号 |
+| data_peak（数据高潮） | 是 | 关键数字值得强调 |
+| comparison（对比） | 否 | 静态并列更利于比较 |
+| process（流程/步骤） | 部分 | 仅第一步动画，其余静态 |
+| timeline（时间线） | 部分 | 仅起点动画 |
+| summary（总结/回顾） | 否 | 回顾页应快速扫过 |
+| closing（结尾） | 是 | 收尾节奏与封面呼应 |
+| 普通内容页 | 否 | 信息密度高，动画干扰阅读 |
+
+每张幻灯片的动画预算：**最多 1-3 个元素**。超过 3 个 = 噪音。
+
+**第二步：选择动画元素**
+
+在需要动画的幻灯片上，按以下优先级选择要动画的元素（从高到低，最多选 3 个）：
+
+| 优先级 | 元素语义 | 选中条件 |
+|--------|---------|---------|
+| P0 | 主标题 | 每张动画幻灯片必选 |
+| P1 | 关键数字 / 统计值 | 页面有大字号数字 (≥36pt) |
+| P2 | 章节副标题 / 英文标签 | 与主标题构成叙事对 |
+| P3 | 分隔线 / 装饰条 | 具有视觉引导功能的线条 |
+| P4 | 信息卡片（仅第一张） | 卡片网格中位置最高/最左的那张 |
+
+不选：正文段落、标签文字、数据表格、背景形状、小字号说明、卡片网格中的其余卡片。
+
+**第三步：匹配效果**
+
+按元素语义角色自动选择效果，不需要人工判断：
+
+| 元素语义 | 效果 | 时长 | 触发 |
+|---------|------|------|------|
+| 主标题（中文大字） | `fade` | 0.6s | `after_previous`, delay 0.3 |
+| 英文标签（全大写小字） | `fade` | 0.4s | `with_previous` |
+| 章节副标题 | `slide_left` | 0.5s | `after_previous`, delay 0.2 |
+| 关键数字（≥36pt） | `zoom_in` | 0.5s | `with_previous` |
+| 分隔线 / 装饰条 | `wipe_right` | 0.4s | `with_previous` |
+| 信息卡片（第一张） | `zoom_in` | 0.4s | `with_previous` |
+| 底部结果条 | `wipe_up` | 0.5s | `after_previous`, delay 0.2 |
+| 流程步骤（仅第一步） | `fade` | 0.4s | `after_previous`, delay 0.2 |
+| 结论条目（第一条） | `fade` | 0.5s | `after_previous`, delay 0.3 |
+
+**幻灯片过渡选择规则：**
+
+| 幻灯片角色 | 过渡类型 | 速度 |
+|-----------|---------|------|
+| cover | `fade` | `med` |
+| section_opener | `push` 或 `wipe` | `med` |
+| data_peak | `fade` | `med` |
+| comparison | `dissolve` | `med` |
+| process / timeline | `wipe` | `med` |
+| closing | `fade` | `med` |
+| 普通内容 | `fade` | `med` |
+
+同一份 PPT 的过渡类型应保持一致（最多用 2-3 种），避免"动画展"。
+
+**禁止模式（硬规则）：**
+
+1. 每个元素都加动画 → 禁止。这是噪音，不是专业感。
+2. 正文/段落文字加动画 → 禁止。读者按自己节奏阅读。
+3. 卡片网格中所有卡片都加动画 → 禁止。只动第一张。
+4. `on_click` 用于正文 → 禁止。观众不应等待逐字出现。
+5. 同一元素同时有入场 + 退出 → 禁止。
+6. delay > 1.0s → 禁止。超过 1 秒的等待 = 死时间。
+7. duration > 1.0s → 禁止。动画慢于 1 秒 = 拖沓。
+8. 装饰性背景形状加动画 → 禁止。背景应即时出现。
+
+**DSL 生成示例（AI 应自动生成此格式）：**
+
+```yaml
+# 封面页 — 标题动画 + 过渡
+- layout: blank
+  transition: { type: fade, speed: med }
+  elements:
+    - type: shape
+      shape: rect
+      position: { x: 35%, y: 18%, width: 30%, height: 0.4% }
+      style: { fill: { color: "#38BDF8" } }
+      # 装饰线 → with_previous，无 delay
+      animation: { effect: wipe_right, duration: 0.4, trigger: with_previous }
+
+    - type: text
+      content: "标题文字"
+      style: title
+      position: { x: 10%, y: 24%, width: 80%, height: 30% }
+      extra: { align: center }
+      # 主标题 → fade，after_previous，delay 0.3
+      animation: { effect: fade, duration: 0.6, delay: 0.3, trigger: after_previous }
+
+    - type: text
+      content: "正文不动画"
+      style: body
+      position: { x: 10%, y: 60%, width: 80%, height: 20% }
+      # 正文 → 无 animation 字段
+
+# 数据页 — 关键数字强调
+- layout: blank
+  transition: { type: fade, speed: med }
+  elements:
+    - type: text
+      content: "0.1002"
+      style:
+        font: { size: 56, weight: 700 }
+      animation: { effect: zoom_in, duration: 0.5, trigger: with_previous }
+```
 
 ### Step 7: Unified Quality Gate
 

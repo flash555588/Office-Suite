@@ -58,6 +58,9 @@ from .types import (
     IRStyle,
     NodeType,
     VALID_PATH_TYPES,
+    EXIT_ANIMATIONS,
+    EMPHASIS_ANIMATIONS,
+    MOTION_PATH_PRESETS,
 )
 
 
@@ -241,21 +244,36 @@ def _parse_animations(raw: dict | None) -> list[IRAnimation]:
         if not isinstance(item, dict):
             continue
 
-        # 动画类型推断
-        # DSL 的 "type" 字段是效果名（fade_in / slide_up 等），不是分类
-        effect = item.get("type") or item.get("effect") or item.get("animation") or "fade"
+        # 动画效果解析
+        # DSL 支持两种格式：
+        #   { effect: fade, ... }        → effect 直接指定
+        #   { type: entry, effect: fade } → type 是分类，effect 是效果
+        #   { type: fade_in, ... }        → type 是效果名（向后兼容）
+        type_val = item.get("type", "")
+        effect_val = item.get("effect", "")
 
-        # 根据效果名推断 anim_type 分类
-        exit_effects = {"fade_out", "slide_out_up", "slide_out_down", "slide_out_left",
-                        "slide_out_right", "zoom_out_exit"}
-        emphasis_effects = {"pulse", "shake", "glow_pulse", "breathe", "float",
-                            "spin_emphasis", "grow", "shrink"}
-        if effect in exit_effects:
-            anim_type = "exit"
-        elif effect in emphasis_effects:
-            anim_type = "emphasis"
-        else:
+        ANIM_CATEGORIES = {"entry", "exit", "emphasis", "motion_path"}
+
+        if effect_val:
+            # 有显式 effect 字段：type 作为分类（若为合法分类值）
+            effect = effect_val
+            anim_type = type_val if type_val in ANIM_CATEGORIES else "entry"
+        elif type_val and type_val not in ANIM_CATEGORIES:
+            # type 值不是分类 → 当作效果名（向后兼容）
+            effect = type_val
             anim_type = "entry"
+        else:
+            effect = "fade"
+            anim_type = type_val if type_val in ANIM_CATEGORIES else "entry"
+
+        # 根据效果名推断 anim_type 分类（若无显式分类）
+        if anim_type == "entry":
+            if effect in EXIT_ANIMATIONS:
+                anim_type = "exit"
+            elif effect in EMPHASIS_ANIMATIONS:
+                anim_type = "emphasis"
+            elif effect in MOTION_PATH_PRESETS:
+                anim_type = "motion_path"
 
         animations.append(IRAnimation(
             anim_type=anim_type,

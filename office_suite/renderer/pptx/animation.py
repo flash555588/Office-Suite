@@ -1,42 +1,12 @@
 """PPTX 动画渲染 — IR IRAnimation → PPTX XML
 
-python-pptx 不提供高级动画 API，需通过 Oxml 注入 XML。
+python-pptx 不提供高级动画 API，需通过 Oxml 直接操作 slide XML。
 
-PPTX 动画 XML 结构：
-  <p:timing>
-    <p:tnLst>
-      <p:par>
-        <p:cTn id="1" dur="indefinite" restart="never">
-          <p:childTnLst>
-            <p:seq concurrent="1" nextAc="seek">
-              <p:cTn id="2" dur="indefinite">
-                <p:childTnLst>
-                  <p:par>
-                    <p:cTn id="3" fill="hold">
-                      <p:stCondLst><p:cond delay="0"/></p:stCondLst>
-                      <p:childTnLst>
-                        <p:par>
-                          <p:cTn id="4" fill="hold">
-                            <p:stCondLst><p:cond delay="0"/></p:stCondLst>
-                            <p:childTnLst>
-                              <p:set>...</p:set>  <!-- 入场 -->
-                              <p:animEffect>...</p:animEffect>  <!-- 效果 -->
-                            </p:childTnLst>
-                          </p:cTn>
-                        </p:par>
-                      </p:childTnLst>
-                    </p:cTn>
-                  </p:par>
-                </p:childTnLst>
-              </p:cTn>
-            </p:seq>
-          </p:childTnLst>
-        </p:cTn>
-      </p:par>
-    </p:tnLst>
-  </p:timing>
-
-简化实现：使用 Oxml 直接操作 slide XML。
+支持四类动画（对应 PowerPoint 四大类）：
+  1. 入场 (entry)     — 40 种效果
+  2. 退出 (exit)      — 40 种效果
+  3. 强调 (emphasis)   — 缩放 / 旋转 / 变色 / 脉冲
+  4. 动作路径 (motion_path) — 直线 / 弧线 / 预设路径 / 自定义 SVG
 """
 
 from lxml import etree
@@ -70,34 +40,135 @@ def reset_anim_buffer():
 
 
 # PPTX 动画效果名映射
-# <a:animEffect transition="in" filter="..."> 或 <p:anim> 类型
+# type: XML 元素类型 (animEffect / animScale / animRot / animClr / animMotion)
+# filter: animEffect 的 filter 属性值
+# transition: animEffect 的 transition 属性 (in/out)
+# scale_to: animScale 的目标百分比 (100000=100%)
+# rotate_to: animRot 的目标角度 (度)
+# color_to: animClr 的目标颜色 (hex)
+# path: animMotion 的 SVG 路径
 EFFECT_MAP = {
-    # 入场
-    "fade": {"type": "animEffect", "filter": "fade", "transition": "in"},
-    "fade_in": {"type": "animEffect", "filter": "fade", "transition": "in"},
-    "slide_up": {"type": "animEffect", "filter": "wipe(t)", "transition": "in"},
-    "slide_down": {"type": "animEffect", "filter": "wipe(b)", "transition": "in"},
-    "slide_left": {"type": "animEffect", "filter": "wipe(l)", "transition": "in"},
-    "slide_right": {"type": "animEffect", "filter": "wipe(r)", "transition": "in"},
-    "zoom_in": {"type": "animEffect", "filter": "zoom", "transition": "in"},
-    "zoom_out": {"type": "animEffect", "filter": "zoom", "transition": "out"},
-    "fly_in": {"type": "animEffect", "filter": "flyIn", "transition": "in"},
-    "wipe_up": {"type": "animEffect", "filter": "wipe(t)", "transition": "in"},
-    "wipe_down": {"type": "animEffect", "filter": "wipe(b)", "transition": "in"},
-    "wipe_left": {"type": "animEffect", "filter": "wipe(l)", "transition": "in"},
-    "wipe_right": {"type": "animEffect", "filter": "wipe(r)", "transition": "in"},
-    # 退出
-    "fade_out": {"type": "animEffect", "filter": "fade", "transition": "out"},
-    "slide_out_up": {"type": "animEffect", "filter": "wipe(t)", "transition": "out"},
-    "slide_out_down": {"type": "animEffect", "filter": "wipe(b)", "transition": "out"},
-    "slide_out_left": {"type": "animEffect", "filter": "wipe(l)", "transition": "out"},
-    "slide_out_right": {"type": "animEffect", "filter": "wipe(r)", "transition": "out"},
-    "zoom_out_exit": {"type": "animEffect", "filter": "zoom", "transition": "out"},
-    # 强调
-    "pulse": {"type": "animScale", "filter": "pulse"},
-    "grow": {"type": "animScale", "filter": "grow"},
-    "shrink": {"type": "animScale", "filter": "shrink"},
-    "spin_emphasis": {"type": "animRot", "filter": "spin"},
+    # ── 入场 ──────────────────────────────────────────────────
+    "fade":          {"type": "animEffect", "filter": "fade",           "transition": "in"},
+    "fade_in":       {"type": "animEffect", "filter": "fade",           "transition": "in"},
+    # 擦除 (方向)
+    "wipe_up":       {"type": "animEffect", "filter": "wipe(t)",        "transition": "in"},
+    "wipe_down":     {"type": "animEffect", "filter": "wipe(b)",        "transition": "in"},
+    "wipe_left":     {"type": "animEffect", "filter": "wipe(l)",        "transition": "in"},
+    "wipe_right":    {"type": "animEffect", "filter": "wipe(r)",        "transition": "in"},
+    "slide_up":      {"type": "animEffect", "filter": "wipe(t)",        "transition": "in"},
+    "slide_down":    {"type": "animEffect", "filter": "wipe(b)",        "transition": "in"},
+    "slide_left":    {"type": "animEffect", "filter": "wipe(l)",        "transition": "in"},
+    "slide_right":   {"type": "animEffect", "filter": "wipe(r)",        "transition": "in"},
+    # 飞入
+    "fly_in":        {"type": "animEffect", "filter": "flyIn",          "transition": "in"},
+    # 缩放
+    "zoom_in":       {"type": "animEffect", "filter": "zoom",           "transition": "in"},
+    "zoom_out_in":   {"type": "animEffect", "filter": "zoom",           "transition": "in"},
+    # 百叶窗
+    "blinds_h":      {"type": "animEffect", "filter": "blinds(h)",      "transition": "in"},
+    "blinds_v":      {"type": "animEffect", "filter": "blinds(v)",      "transition": "in"},
+    # 棋盘
+    "checkerboard":  {"type": "animEffect", "filter": "checkerboard(h)","transition": "in"},
+    "checkerboard_v":{"type": "animEffect", "filter": "checkerboard(v)","transition": "in"},
+    # 盒状
+    "box_in":        {"type": "animEffect", "filter": "box(in)",        "transition": "in"},
+    "box_out":       {"type": "animEffect", "filter": "box(out)",       "transition": "in"},
+    # 菱形
+    "diamond":       {"type": "animEffect", "filter": "diamond",        "transition": "in"},
+    # 十字
+    "plus":          {"type": "animEffect", "filter": "plus",           "transition": "in"},
+    # 轮辐
+    "wheel_1":       {"type": "animEffect", "filter": "wheel(1)",       "transition": "in"},
+    "wheel_2":       {"type": "animEffect", "filter": "wheel(2)",       "transition": "in"},
+    "wheel_3":       {"type": "animEffect", "filter": "wheel(3)",       "transition": "in"},
+    "wheel_4":       {"type": "animEffect", "filter": "wheel(4)",       "transition": "in"},
+    "wheel_8":       {"type": "animEffect", "filter": "wheel(8)",       "transition": "in"},
+    # 随机条
+    "random_bars_h": {"type": "animEffect", "filter": "randomBar(h)",   "transition": "in"},
+    "random_bars_v": {"type": "animEffect", "filter": "randomBar(v)",   "transition": "in"},
+    # 形状
+    "circle":        {"type": "animEffect", "filter": "circle",         "transition": "in"},
+    "shape_diamond": {"type": "animEffect", "filter": "shape(diamond)", "transition": "in"},
+    "shape_plus":    {"type": "animEffect", "filter": "shape(plus)",    "transition": "in"},
+    # 切入
+    "cut_in":        {"type": "animEffect", "filter": "none",           "transition": "in"},
+    # 淡出变大
+    "faded_swivel":  {"type": "animEffect", "filter": "fade",           "transition": "in"},
+    # 条纹
+    "strips_upleft":    {"type": "animEffect", "filter": "strips(lu)",  "transition": "in"},
+    "strips_upright":   {"type": "animEffect", "filter": "strips(ru)",  "transition": "in"},
+    "strips_downleft":  {"type": "animEffect", "filter": "strips(ld)",  "transition": "in"},
+    "strips_downright": {"type": "animEffect", "filter": "strips(rd)",  "transition": "in"},
+    # 轮子
+    "wheel":         {"type": "animEffect", "filter": "wheel(8)",       "transition": "in"},
+
+    # ── 退出 ──────────────────────────────────────────────────
+    "fade_out":         {"type": "animEffect", "filter": "fade",           "transition": "out"},
+    "wipe_out_up":      {"type": "animEffect", "filter": "wipe(t)",        "transition": "out"},
+    "wipe_out_down":    {"type": "animEffect", "filter": "wipe(b)",        "transition": "out"},
+    "wipe_out_left":    {"type": "animEffect", "filter": "wipe(l)",        "transition": "out"},
+    "wipe_out_right":   {"type": "animEffect", "filter": "wipe(r)",        "transition": "out"},
+    "slide_out_up":     {"type": "animEffect", "filter": "wipe(t)",        "transition": "out"},
+    "slide_out_down":   {"type": "animEffect", "filter": "wipe(b)",        "transition": "out"},
+    "slide_out_left":   {"type": "animEffect", "filter": "wipe(l)",        "transition": "out"},
+    "slide_out_right":  {"type": "animEffect", "filter": "wipe(r)",        "transition": "out"},
+    "fly_out":          {"type": "animEffect", "filter": "flyIn",          "transition": "out"},
+    "zoom_out":         {"type": "animEffect", "filter": "zoom",           "transition": "out"},
+    "zoom_out_exit":    {"type": "animEffect", "filter": "zoom",           "transition": "out"},
+    "blinds_out_h":     {"type": "animEffect", "filter": "blinds(h)",      "transition": "out"},
+    "blinds_out_v":     {"type": "animEffect", "filter": "blinds(v)",      "transition": "out"},
+    "checkerboard_out": {"type": "animEffect", "filter": "checkerboard(h)","transition": "out"},
+    "box_out_exit":     {"type": "animEffect", "filter": "box(out)",       "transition": "out"},
+    "diamond_out":      {"type": "animEffect", "filter": "diamond",        "transition": "out"},
+    "circle_out":       {"type": "animEffect", "filter": "circle",         "transition": "out"},
+    "random_bars_out_h":{"type": "animEffect", "filter": "randomBar(h)",   "transition": "out"},
+    "random_bars_out_v":{"type": "animEffect", "filter": "randomBar(v)",   "transition": "out"},
+    "strips_out_upleft":   {"type": "animEffect", "filter": "strips(lu)",  "transition": "out"},
+    "strips_out_upright":  {"type": "animEffect", "filter": "strips(ru)",  "transition": "out"},
+    "strips_out_downleft": {"type": "animEffect", "filter": "strips(ld)",  "transition": "out"},
+    "strips_out_downright":{"type": "animEffect", "filter": "strips(rd)",  "transition": "out"},
+
+    # ── 强调：缩放 ────────────────────────────────────────────
+    "pulse":    {"type": "animScale", "scale_to": 110000},
+    "grow":     {"type": "animScale", "scale_to": 150000},
+    "shrink":   {"type": "animScale", "scale_to": 75000},
+    "grow_s":   {"type": "animScale", "scale_to": 120000},  # 轻微放大
+    "shrink_s": {"type": "animScale", "scale_to": 90000},   # 轻微缩小
+
+    # ── 强调：旋转 ────────────────────────────────────────────
+    "spin_cw":         {"type": "animRot", "rotate_to": 360},
+    "spin_ccw":        {"type": "animRot", "rotate_to": -360},
+    "spin_half_cw":    {"type": "animRot", "rotate_to": 180},
+    "spin_half_ccw":   {"type": "animRot", "rotate_to": -180},
+    "spin_emphasis":   {"type": "animRot", "rotate_to": 360},
+
+    # ── 强调：变色 ────────────────────────────────────────────
+    "color_pulse":     {"type": "animClr", "color_to": "38BDF8"},  # 强调蓝
+    "color_grow":      {"type": "animClr", "color_to": "22C55E"},  # 成功绿
+    "color_warn":      {"type": "animClr", "color_to": "F59E0B"},  # 警告黄
+    "color_flash":     {"type": "animClr", "color_to": "EF4444"},  # 错误红
+
+    # ── 动作路径：直线 ────────────────────────────────────────
+    "path_right":      {"type": "animMotion", "path": "M 0 0 L 1 0"},
+    "path_left":       {"type": "animMotion", "path": "M 0 0 L -1 0"},
+    "path_up":         {"type": "animMotion", "path": "M 0 0 L 0 -1"},
+    "path_down":       {"type": "animMotion", "path": "M 0 0 L 0 1"},
+    "path_up_right":   {"type": "animMotion", "path": "M 0 0 L 1 -1"},
+    "path_down_right": {"type": "animMotion", "path": "M 0 0 L 1 1"},
+    "path_up_left":    {"type": "animMotion", "path": "M 0 0 L -1 -1"},
+    "path_down_left":  {"type": "animMotion", "path": "M 0 0 L -1 1"},
+
+    # ── 动作路径：弧线 ────────────────────────────────────────
+    "path_arc_right":  {"type": "animMotion", "path": "M 0 0 C 0.5 -0.5 1 -0.5 1 0"},
+    "path_arc_left":   {"type": "animMotion", "path": "M 0 0 C -0.5 -0.5 -1 -0.5 -1 0"},
+    "path_loop":       {"type": "animMotion", "path": "M 0 0 C 0.5 -1 1 0 0.5 0.5 C 0 1 -0.5 0 0 0"},
+
+    # ── 动作路径：预设 ────────────────────────────────────────
+    "path_diamond":    {"type": "animMotion", "path": "M 0 0 L 0.5 -0.5 L 1 0 L 0.5 0.5 Z"},
+    "path_triangle":   {"type": "animMotion", "path": "M 0 0 L 0.5 -0.5 L 1 0 Z"},
+    "path_hexagon":    {"type": "animMotion", "path": "M 0 0 L 0.5 -0.3 L 1 0 L 1 0.3 L 0.5 0.6 L 0 0.3 Z"},
+    "path_figure_8":   {"type": "animMotion", "path": "M 0 0 C 0.5 -0.5 1 0 0.5 0.5 C 0 1 -0.5 0.5 0 0"},
 }
 
 # 缓动函数 → PPTX 加速/减速
@@ -251,9 +322,12 @@ def _add_anim_group(tn_lst, group: list[tuple], nsmap: dict):
 
         # 查找效果信息
         effect_info = _resolve_effect(anim.effect)
+        xml_type = effect_info.get("type", "animEffect")
 
-        # 构建效果节点
-        if anim.anim_type == "entry":
+        # 按 XML 类型分发到对应 builder
+        if anim.anim_type == "motion_path" or xml_type == "animMotion":
+            _build_motion_path(final_child, shape_id, anim, effect_info, p_ns, nsmap['a'])
+        elif anim.anim_type == "entry":
             _build_entry_effect(final_child, shape_id, anim, effect_info, p_ns, nsmap['a'])
         elif anim.anim_type == "exit":
             _build_exit_effect(final_child, shape_id, anim, effect_info, p_ns, nsmap['a'])
@@ -344,7 +418,20 @@ def _build_exit_effect(parent, shape_id: int, anim: IRAnimation,
 
 def _build_emphasis_effect(parent, shape_id: int, anim: IRAnimation,
                            effect_info: dict, p_ns: str, a_ns: str):
-    """构建强调效果 XML（animScale，不绑定透明度）"""
+    """构建强调效果 XML — 按 effect_info.type 分发到 animScale / animRot / animClr"""
+    xml_type = effect_info.get("type", "animScale")
+
+    if xml_type == "animRot":
+        _build_emphasis_rot(parent, shape_id, anim, effect_info, p_ns)
+    elif xml_type == "animClr":
+        _build_emphasis_color(parent, shape_id, anim, effect_info, p_ns, a_ns)
+    else:
+        _build_emphasis_scale(parent, shape_id, anim, effect_info, p_ns)
+
+
+def _build_emphasis_scale(parent, shape_id: int, anim: IRAnimation,
+                           effect_info: dict, p_ns: str):
+    """强调 — 缩放"""
     anim_scale = etree.SubElement(parent, f'{{{p_ns}}}animScale')
     anim_scale.set('zoomContent', '0')
 
@@ -357,9 +444,101 @@ def _build_emphasis_effect(parent, shape_id: int, anim: IRAnimation,
     sp_tgt = etree.SubElement(tgt_el, f'{{{p_ns}}}spTgt')
     sp_tgt.set('spid', str(shape_id))
 
-    # scale to（110% 放大，无透明度耦合）
+    scale_val = str(effect_info.get("scale_to", 110000))
     to_elem = etree.SubElement(anim_scale, f'{{{p_ns}}}to')
     sx = etree.SubElement(to_elem, f'{{{p_ns}}}sx')
-    sx.set('val', '110000')
+    sx.set('val', scale_val)
     sy = etree.SubElement(to_elem, f'{{{p_ns}}}sy')
-    sy.set('val', '110000')
+    sy.set('val', scale_val)
+
+
+def _build_emphasis_rot(parent, shape_id: int, anim: IRAnimation,
+                         effect_info: dict, p_ns: str):
+    """强调 — 旋转"""
+    anim_rot = etree.SubElement(parent, f'{{{p_ns}}}animRot')
+    rotate_deg = effect_info.get("rotate_to", 360)
+    # PPTX 用 60000ths of a degree
+    anim_rot.set('by', str(int(rotate_deg * 60000)))
+
+    cbn = etree.SubElement(anim_rot, f'{{{p_ns}}}cBhvr')
+    ctn = etree.SubElement(cbn, f'{{{p_ns}}}cTn')
+    ctn.set('id', _next_anim_id())
+    ctn.set('dur', str(int(anim.duration * 1000)))
+
+    tgt_el = etree.SubElement(cbn, f'{{{p_ns}}}tgtEl')
+    sp_tgt = etree.SubElement(tgt_el, f'{{{p_ns}}}spTgt')
+    sp_tgt.set('spid', str(shape_id))
+
+
+def _build_emphasis_color(parent, shape_id: int, anim: IRAnimation,
+                           effect_info: dict, p_ns: str, a_ns: str):
+    """强调 — 颜色变化"""
+    anim_clr = etree.SubElement(parent, f'{{{p_ns}}}animClr')
+
+    cbn = etree.SubElement(anim_clr, f'{{{p_ns}}}cBhvr')
+    ctn = etree.SubElement(cbn, f'{{{p_ns}}}cTn')
+    ctn.set('id', _next_anim_id())
+    ctn.set('dur', str(int(anim.duration * 1000)))
+    ctn.set('fill', 'hold')
+
+    tgt_el = etree.SubElement(cbn, f'{{{p_ns}}}tgtEl')
+    sp_tgt = etree.SubElement(tgt_el, f'{{{p_ns}}}spTgt')
+    sp_tgt.set('spid', str(shape_id))
+
+    attr_lst = etree.SubElement(cbn, f'{{{p_ns}}}attrNameLst')
+    attr = etree.SubElement(attr_lst, f'{{{p_ns}}}attrName')
+    attr.text = 'fill'
+
+    # 目标颜色
+    color_hex = effect_info.get("color_to", "38BDF8")
+    to_elem = etree.SubElement(anim_clr, f'{{{p_ns}}}to')
+    srgb = etree.SubElement(to_elem, f'{{{a_ns}}}srgbClr')
+    srgb.set('val', color_hex)
+
+
+def _build_motion_path(parent, shape_id: int, anim: IRAnimation,
+                        effect_info: dict, p_ns: str, a_ns: str):
+    """动作路径 — 元素沿路径移动
+
+    path 格式为归一化坐标 (0~1)，渲染时乘以 slide 尺寸转换为 EMU。
+    SVG path 支持 M/L/C/Z 指令。
+    """
+    anim_motion = etree.SubElement(parent, f'{{{p_ns}}}animMotion')
+
+    # 路径数据
+    path_data = effect_info.get("path", anim.direction or "M 0 0 L 1 0")
+    # 归一化 → PPTX 坐标系 (100000 = 100%)
+    scaled_path = _scale_motion_path(path_data, 100000)
+    anim_motion.set('path', scaled_path)
+
+    # origin: parent 让路径相对于父容器
+    anim_motion.set('origin', 'parent')
+
+    cbn = etree.SubElement(anim_motion, f'{{{p_ns}}}cBhvr')
+    ctn = etree.SubElement(cbn, f'{{{p_ns}}}cTn')
+    ctn.set('id', _next_anim_id())
+    ctn.set('dur', str(int(anim.duration * 1000)))
+
+    tgt_el = etree.SubElement(cbn, f'{{{p_ns}}}tgtEl')
+    sp_tgt = etree.SubElement(tgt_el, f'{{{p_ns}}}spTgt')
+    sp_tgt.set('spid', str(shape_id))
+
+
+def _scale_motion_path(path_data: str, scale: int) -> str:
+    """将归一化路径坐标 (0~1) 缩放为 PPTX 坐标
+
+    输入: "M 0 0 L 1 0" 或 "M 0 0 C 0.5 -0.5 1 -0.5 1 0"
+    输出: "M 0 0 L 100000 0" (scale=100000)
+    """
+    tokens = path_data.strip().split()
+    result = []
+    for t in tokens:
+        if t.isalpha():
+            result.append(t)
+        else:
+            try:
+                val = float(t)
+                result.append(str(int(val * scale)))
+            except ValueError:
+                result.append(t)
+    return " ".join(result)

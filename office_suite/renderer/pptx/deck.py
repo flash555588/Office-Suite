@@ -191,6 +191,12 @@ class PPTXRenderer(BaseRenderer):
         for elem_node in slide_node.children:
             self._render_element(slide, elem_node, doc)
 
+        # 幻灯片切换效果
+        transition_data = slide_node.extra.get("transition")
+        if transition_data:
+            from .transition import apply_transition
+            apply_transition(slide, transition_data)
+
         # 所有形状渲染完毕后，统一分组写入动画 XML
         flush_slide_animations(slide)
 

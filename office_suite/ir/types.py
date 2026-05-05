@@ -224,29 +224,50 @@ class IRAnimation:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-# 入场动画预设
+# 入场动画预设（对应 EFFECT_MAP 中 transition="in" 的条目）
 ENTRY_ANIMATIONS = {
-    "fade", "fade_in", "slide_up", "slide_down", "slide_left", "slide_right",
-    "zoom_in", "zoom_out", "fly_in", "wipe_up", "wipe_down", "wipe_left",
-    "wipe_right", "split_horizontal", "split_vertical", "shape_dissolve",
-    "blinds", "checkerboard", "random_bars", "wheel", "spin",
+    "fade", "fade_in",
+    "wipe_up", "wipe_down", "wipe_left", "wipe_right",
+    "slide_up", "slide_down", "slide_left", "slide_right",
+    "fly_in", "zoom_in", "zoom_out_in",
+    "blinds_h", "blinds_v",
+    "checkerboard", "checkerboard_v",
+    "box_in", "box_out",
+    "diamond", "plus",
+    "wheel", "wheel_1", "wheel_2", "wheel_3", "wheel_4", "wheel_8",
+    "random_bars_h", "random_bars_v",
+    "circle", "shape_diamond", "shape_plus",
+    "cut_in", "faded_swivel",
+    "strips_upleft", "strips_upright", "strips_downleft", "strips_downright",
 }
 
-# 退出动画预设
+# 退出动画预设（对应 EFFECT_MAP 中 transition="out" 的条目）
 EXIT_ANIMATIONS = {
-    "fade_out", "slide_out_up", "slide_out_down", "slide_out_left",
-    "slide_out_right", "zoom_out_exit", "fly_out", "wipe_exit",
+    "fade_out",
+    "wipe_out_up", "wipe_out_down", "wipe_out_left", "wipe_out_right",
+    "slide_out_up", "slide_out_down", "slide_out_left", "slide_out_right",
+    "fly_out", "zoom_out", "zoom_out_exit",
+    "blinds_out_h", "blinds_out_v",
+    "checkerboard_out", "box_out_exit",
+    "diamond_out", "circle_out",
+    "random_bars_out_h", "random_bars_out_v",
+    "strips_out_upleft", "strips_out_upright",
+    "strips_out_downleft", "strips_out_downright",
 }
 
-# 强调动画预设
+# 强调动画预设（缩放 / 旋转 / 变色）
 EMPHASIS_ANIMATIONS = {
-    "pulse", "shake", "glow_pulse", "breathe", "float", "spin_emphasis",
-    "grow", "shrink", "color_change", "bold_reveal",
+    "pulse", "grow", "shrink", "grow_s", "shrink_s",
+    "spin_cw", "spin_ccw", "spin_half_cw", "spin_half_ccw", "spin_emphasis",
+    "color_pulse", "color_grow", "color_warn", "color_flash",
 }
 
-# 路径动画预设
+# 路径动画预设（直线 / 弧线 / 预设形状）
 MOTION_PATH_PRESETS = {
-    "arc", "spiral", "wave_path", "loop", "diamond", "hexagon",
+    "path_right", "path_left", "path_up", "path_down",
+    "path_up_right", "path_down_right", "path_up_left", "path_down_left",
+    "path_arc_right", "path_arc_left", "path_loop",
+    "path_diamond", "path_triangle", "path_hexagon", "path_figure_8",
 }
 
 # 缓动函数

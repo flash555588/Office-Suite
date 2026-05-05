@@ -295,6 +295,87 @@ When the deck exceeds 20 pages, delegate page generation to sub-agents:
 
 **Invariant**: For any file on disk, pass the file path. Never summarize or compress content before passing to sub-agents -- information loss during handoff degrades output quality.
 
+### 4.4 Motion Design: Transitions and Animations
+
+Motion is a scarce attention resource, not decoration. Every animated element competes with every other for the audience's gaze. The AI must decide autonomously whether and how to animate — the user never specifies animation details.
+
+**Decision Process (three steps, applied per slide):**
+
+**Step 1 — Should this slide have element animations?**
+
+| Slide role | Animate? | Cognitive reason |
+|-----------|----------|-----------------|
+| `opener` / cover | YES | First impression establishes pacing rhythm |
+| `context` / section_opener | YES | Section transition needs visual signal |
+| `proof` / data_peak | YES | Key data deserves emphasis moment |
+| `contrast` / comparison | NO | Static side-by-side enables direct comparison |
+| `method` / process | PARTIAL | Only first step — rest appear instantly |
+| `pause` / summary | NO | Review slides should be scannable, not theatrical |
+| `close` / ending | YES | Closing rhythm mirrors opener |
+
+Budget: **max 1-3 animated elements per slide**. More than 3 = noise.
+
+**Step 2 — Which elements to animate? (priority ranking, select top 1-3)**
+
+| Priority | Element semantic | Condition |
+|----------|-----------------|-----------|
+| P0 | Main title (中文大字) | Every animated slide — mandatory |
+| P1 | Hero number / statistic | Font size ≥ 36pt |
+| P2 | English label / section subtitle | Pairs with title as narrative beat |
+| P3 | Divider line / accent bar | Has visual guidance function |
+| P4 | First info card only | Highest/leftmost card in a grid |
+
+Never select: body paragraphs, labels, tables, background shapes, small captions, non-first cards.
+
+**Step 3 — Match effect to element semantic role:**
+
+| Element role | Effect | Duration | Trigger |
+|-------------|--------|----------|---------|
+| Main title (中文) | `fade` | 0.6s | `after_previous`, delay 0.3 |
+| English label (ALL CAPS) | `fade` | 0.4s | `with_previous` |
+| Section subtitle | `slide_left` | 0.5s | `after_previous`, delay 0.2 |
+| Hero number (≥36pt) | `zoom_in` | 0.5s | `with_previous` |
+| Divider line | `wipe_right` | 0.4s | `with_previous` |
+| Info card (first only) | `zoom_in` | 0.4s | `with_previous` |
+| Result bar (bottom) | `wipe_up` | 0.5s | `after_previous`, delay 0.2 |
+| Process step (first only) | `fade` | 0.4s | `after_previous`, delay 0.2 |
+| Conclusion item (first only) | `fade` | 0.5s | `after_previous`, delay 0.3 |
+
+**Slide transition selection:**
+
+Use `fade` for most slides. Use `push` or `wipe` for section transitions. Use at most 2-3 transition types per deck. Consistency beats variety.
+
+| Slide role | Transition |
+|-----------|-----------|
+| cover / closing | `fade`, `med` |
+| section_opener | `push` or `wipe`, `med` |
+| data / content | `fade`, `med` |
+
+**Hard prohibitions:**
+
+1. Never animate every element on a slide.
+2. Never animate body text, paragraphs, or captions.
+3. Never animate all cards in a card grid — only the first.
+4. Never use `on_click` on body text.
+5. Never mix entry + exit on the same element.
+6. Never set delay > 1.0s or duration > 1.0s.
+7. Never animate decorative background shapes.
+
+**DSL generation (AI outputs this automatically):**
+
+```yaml
+- layout: blank
+  transition: { type: fade, speed: med }
+  elements:
+    - type: text
+      content: "标题"
+      style: title
+      animation: { effect: fade, duration: 0.6, delay: 0.3, trigger: after_previous }
+    - type: text
+      content: "正文不加 animation 字段"
+      style: body
+```
+
 ---
 
 ## Phase 5: Verification
